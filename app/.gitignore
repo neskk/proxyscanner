@@ -1,0 +1,7 @@
+config/*
+!config/config.example.ini
+downloads/
+logs/
+*.pyc
+*.txt
+!requirements.txt

@@ -1,0 +1,38 @@
+version: '3.3'
+
+services:
+  db:
+    image: mysql:5.7
+    ports:
+      - '3306:3306'
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      #MYSQL_ALLOW_EMPTY_PASSWORD: 'Yes'
+      #MYSQL_RANDOM_ROOT_PASSWORD: 'Yes'
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./my.cnf:/etc/mysql/conf.d/custom.cnf
+
+  py:
+    depends_on:
+      - db
+    image: python:3-alpine
+    ports:
+      - '8000:80'
+    #restart: always
+    environment:
+      MYSQL_HOST: db:3306
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    working_dir: /usr/src/app
+    command: sh -c "pip install -U -r requirements.txt && python start.py -h"
+    volumes:
+      - ./app/:/usr/src/app
+
+volumes:
+  db_data: {}
