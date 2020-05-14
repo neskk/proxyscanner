@@ -37,7 +37,7 @@ def setup_workspace(args):
 
 def configure_logging(args, log):
     date = time.strftime('%Y%m%d_%H%M')
-    filename = os.path.join(args.log_path, '{}-pogo-proxies.log'.format(date))
+    filename = os.path.join(args.log_path, '{}-proxyscanner.log'.format(date))
     filelog = logging.FileHandler(filename)
     formatter = logging.Formatter(
         '%(asctime)s [%(threadName)18s][%(module)20s][%(levelname)8s] '

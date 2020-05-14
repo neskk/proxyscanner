@@ -5,6 +5,7 @@ import IP2Location
 import logging
 import os
 import requests
+import time
 
 from zipfile import ZipFile, is_zipfile
 
@@ -23,6 +24,11 @@ class IP2LocationDatabase(object):
 
         if not os.path.isfile(database_file):
             self.download_database()
+        else:
+            mtime = os.path.getmtime(database_file)
+            if time.time() > mtime + (30 * 24 * 3600):
+                log.debug('IP2Location database is at least one month old, downloading newer version.')
+                self.download_database()
 
         self.database = IP2Location.IP2Location(database_file)
 

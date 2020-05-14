@@ -22,12 +22,11 @@ Scrap proxy lists from the web and test their connectivity.
 - [Conversion from IP string to integer and backwards](https://stackoverflow.com/a/13294427)
 - [Coerse INET_ATON](https://github.com/coleifer/peewee/issues/342)
 - [ProxyChains](https://github.com/haad/proxychains)
-- [IP2Location python library](https://www.ip2location.com/developers/python)
-
+- [IP2Location python library](https://www.ip2location.com/development-libraries/ip2location/python) - [GitHub](https://github.com/chrislim2888/IP2Location-Python)
 
 ## Credits
+This site or product includes IP2Location LITE data available from [http://www.ip2location.com](http://www.ip2location.com).
 
-This software includes IP2Location LITE data available from [http://lite.ip2location.com](http://lite.ip2location.com)
 Originally based on [neskk/PoGo-Proxies](https://github.com/neskk/PoGo-Proxies).
 
 ## Disclaimer
@@ -49,7 +48,9 @@ We're not responsible for these proxies and we're not responsible for what users
 
 ## TODO
 - Instead of dict handling models, use model objects and update proxies "real-time" on the database.
+- Add PWD of start.py to all paths
 - Change structure of proxy tests: each one is now a table with its properties and a fk proxy hash.
+- Proxy test: id, proxy_fk, status, success, fail, latency
 - Add IP2Proxy database and check these IPs for valuable proxies. Also check if other proxies are present or not - indicador.
 
 ## Usage
