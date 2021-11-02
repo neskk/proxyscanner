@@ -3,6 +3,8 @@
 
 import hashlib
 import logging
+import socket
+import struct
 import sys
 
 from peewee import (DatabaseProxy, Model, OperationalError, IntegrityError, CompositeKey,
@@ -12,6 +14,7 @@ from playhouse.pool import PooledMySQLDatabase
 from playhouse.migrate import migrate, MySQLMigrator
 
 from datetime import datetime, timedelta
+from enum import Enum
 
 from .utils import ip2int, int2ip
 
@@ -20,7 +23,7 @@ log = logging.getLogger(__name__)
 
 # http://docs.peewee-orm.com/en/latest/peewee/database.html#dynamically-defining-a-database
 db = DatabaseProxy()
-db_schema_version = 3
+db_schema_version = 1
 db_step = 250
 
 # Connect to a MySQL database on network.
@@ -48,6 +51,21 @@ def init_database(db_name, db_host, db_port, db_user, db_pass):
         sys.exit(1)
     return db
 
+# Enum Classes
+class ProxyProtocol(Enum):
+    HTTP = 0
+    SOCKS4 = 1
+    SOCKS5 = 2
+
+
+class ProxyStatus(Enum):
+    OK = 0
+    UNKNOWN = 1
+    ERROR = 2
+    TIMEOUT = 3
+    BANNED = 4
+
+
 # Custom fields
 class Utf8mb4CharField(CharField):
     def __init__(self, max_length=191, *args, **kwargs):
@@ -67,6 +85,32 @@ class USmallIntegerField(SmallIntegerField):
     field_type = 'smallint unsigned'
 
 
+class IPField(UIntegerField):
+    """ Unsigned 32 bit integer IP (v4) address """
+    def db_value(self, val):
+        if val is not None and isinstance(val, str):
+            return struct.unpack('!I', socket.inet_aton(val))[0]
+
+    def python_value(self, val):
+        if val is not None and isinstance(val, int):
+            return socket.inet_ntoa(struct.pack('!I', val))
+
+
+# https://github.com/coleifer/peewee/issues/630
+class EnumField(SmallIntegerField):
+    """	Integer representation field for Enum """
+    def __init__(self, choices, *args, **kwargs):
+        super(SmallIntegerField, self).__init__(*args, **kwargs)
+        self.choices = choices
+
+    def db_value(self, value):
+        return value.value
+
+    def python_value(self, value):
+        return self.choices(value)
+
+
+# http://docs.peewee-orm.com/en/latest/peewee/models.html
 class BaseModel(Model):
     class Meta:
         database = db
@@ -80,23 +124,9 @@ class BaseModel(Model):
         return [m for m in cls.select().dicts()]
 
 
-class ProxyProtocol:
-    HTTP = 0
-    SOCKS4 = 1
-    SOCKS5 = 2
-
-
-class ProxyStatus:
-    OK = 0
-    UNKNOWN = 1
-    ERROR = 2
-    TIMEOUT = 3
-    BANNED = 4
-
-
 class Proxy(BaseModel):
     hash = UIntegerField(unique=True)
-    ip = UIntegerField()
+    ip = IPField()
     port = USmallIntegerField()
     protocol = USmallIntegerField(index=True)
     username = Utf8mb4CharField(null=True, max_length=32)
@@ -117,7 +147,7 @@ class Proxy(BaseModel):
     def db_format(proxy):
         return {
             'hash': proxy['hash'],
-            'ip': ip2int(proxy['ip']),
+            'ip': proxy['ip'],
             'port': proxy['port'],
             'protocol': proxy['protocol'],
             'username': proxy['username'],
@@ -343,6 +373,7 @@ class Version(BaseModel):
     val = SmallIntegerField()
 
     class Meta:
+        # http://docs.peewee-orm.com/en/latest/peewee/models.html#meta-primary-key
         primary_key = False
 
 MODELS = [Proxy, Version]

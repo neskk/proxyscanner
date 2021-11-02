@@ -1,0 +1,43 @@
+version: '3.3'
+
+services:
+  db:
+    image: mysql:5.7
+    ports:
+      - '3306:3306'
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      #MYSQL_ALLOW_EMPTY_PASSWORD: 'Yes'
+      #MYSQL_RANDOM_ROOT_PASSWORD: 'Yes'
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./my.cnf:/etc/mysql/conf.d/custom.cnf
+
+  py:
+    image: proxyscanner
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    depends_on:
+      - db
+    ports:
+      - '8000:80'
+    #restart: always
+    environment:
+      MYSQL_HOST: db:3306
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    working_dir: /usr/src/app
+    command: ["sh", "-c", "pip install debugpy -t /tmp && python /tmp/debugpy --wait-for-client --listen 0.0.0.0:5678 start.py"]
+    ports:
+      - 5678:5678
+    volumes:
+      - ./app/:/usr/src/app
+
+volumes:
+  db_data: {}

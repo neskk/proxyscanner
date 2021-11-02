@@ -17,10 +17,13 @@ services:
       - db_data:/var/lib/mysql
       - ./my.cnf:/etc/mysql/conf.d/custom.cnf
 
-  py:
+  proxyscanner:
+    image: proxyscanner
+    build:
+      context: .
+      dockerfile: ./Dockerfile
     depends_on:
       - db
-    image: python:3-alpine
     ports:
       - '8000:80'
     #restart: always
@@ -30,7 +33,7 @@ services:
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     working_dir: /usr/src/app
-    command: sh -c "pip install -U -r requirements.txt && python start.py -h"
+    command: sh -c "pip install -U -r requirements.txt && python start.py"
     volumes:
       - ./app/:/usr/src/app
 

@@ -35,7 +35,8 @@ This software allows scrapping of public proxies and only provides access to the
 We're not responsible for these proxies and we're not responsible for what users do with them.
 
 ## Requirements
-
+- Python 3.4+
+- MySQL 5.7+
 - beautifulsoup4==4.9.0
 - configargparse==1.2.3
 - pymysql==0.9.3
@@ -43,7 +44,7 @@ We're not responsible for these proxies and we're not responsible for what users
 - PySocks==1.7.1
 - requests==2.23.0
 - ip2location==8.4.1
-- ~~jsbeautifier==1.11.0~~ We're using a modified version of  [packer.py](https://github.com/beautify-web/js-beautify/blob/master/python/jsbeautifier/unpackers/packer.py)
+- ~~jsbeautifier==1.11.0~~ We're using a modified version of [packer.py](https://github.com/beautify-web/js-beautify/blob/master/python/jsbeautifier/unpackers/packer.py)
 
 
 ## TODO
