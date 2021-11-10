@@ -52,17 +52,17 @@ class ProxyNova(ProxyScrapper):
         table_rows = tbody.find_all('tr')
         for row in table_rows:
             columns = row.find_all('td')
-            if len(columns) != 8:
+            if len(columns) != 7:
                 continue
 
             ip_script = columns[0].find('script').string
-            m = re.search(r"document.write\('([\d\.]+)'\)", ip_script)
+            m = re.search(r"document.write\('([\d\.]+)'\s\+\s'([\d\.]+)'\)", ip_script)
 
             if not m:
                 log.error('Invalid IP format on IP column.')
                 break
 
-            ip = m.group(1).strip()
+            ip = m.group(1).strip() + m.group(2).strip()
             port = columns[1].get_text().strip()
             country = columns[5].find('a')
             city = country.find('span')

@@ -34,7 +34,7 @@ class Freeproxylist(ProxyScrapper):
         proxylist = []
         soup = BeautifulSoup(html, 'html.parser')
 
-        table = soup.find('table', attrs={'id': 'proxylisttable'})
+        table = soup.select_one('div.fpl-list table')
 
         if not table:
             log.error('Unable to find proxylist table.')

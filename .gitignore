@@ -1,1 +1,8 @@
-.vscode/
+config/
+!config.example.ini
+downloads/
+logs/
+venv/
+*.pyc
+*.txt
+!requirements.txt

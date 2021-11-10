@@ -309,7 +309,11 @@ class ProxyTester():
             self.proxy_updates[proxy['hash']] = proxy
 
     def __run_tests(self, proxy):
-        result = True
+        result = {
+            'status': ProxyStatus.UNKNOWN,
+            'message': None,
+            'latency': 0,
+        }
 
         session = requests.Session()
 

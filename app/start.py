@@ -9,66 +9,12 @@ import time
 from timeit import default_timer
 
 from proxytools import utils
+from proxytools.config import Config
 from proxytools.proxy_tester import ProxyTester
 from proxytools.proxy_parser import MixedParser, HTTPParser, SOCKSParser
 from proxytools.models import init_database, Proxy, ProxyProtocol
 
 log = logging.getLogger()
-
-
-class LogFilter(logging.Filter):
-
-    def __init__(self, level):
-        self.level = level
-
-    def filter(self, record):
-        return record.levelno < self.level
-
-
-def setup_workspace(args):
-    if not os.path.exists(args.log_path):
-        # Create directory for log files.
-        os.mkdir(args.log_path)
-
-    if not os.path.exists(args.download_path):
-        # Create directory for downloaded files.
-        os.mkdir(args.download_path)
-
-
-def configure_logging(args, log):
-    date = time.strftime('%Y%m%d_%H%M')
-    filename = os.path.join(args.log_path, '{}-proxyscanner.log'.format(date))
-    filelog = logging.FileHandler(filename)
-    formatter = logging.Formatter(
-        '%(asctime)s [%(threadName)18s][%(module)20s][%(levelname)8s] '
-        '%(message)s')
-    filelog.setFormatter(formatter)
-    log.addHandler(filelog)
-
-    if args.verbose:
-        log.setLevel(logging.DEBUG)
-        log.debug('Running in verbose mode (-v).')
-    else:
-        log.setLevel(logging.INFO)
-
-    logging.getLogger('peewee').setLevel(logging.INFO)
-    logging.getLogger('requests').setLevel(logging.WARNING)
-    logging.getLogger('urllib3').setLevel(logging.ERROR)
-
-    # Redirect messages lower than WARNING to stdout
-    stdout_hdlr = logging.StreamHandler(sys.stdout)
-    stdout_hdlr.setFormatter(formatter)
-    log_filter = LogFilter(logging.WARNING)
-    stdout_hdlr.addFilter(log_filter)
-    stdout_hdlr.setLevel(5)
-
-    # Redirect messages equal or higher than WARNING to stderr
-    stderr_hdlr = logging.StreamHandler(sys.stderr)
-    stderr_hdlr.setFormatter(formatter)
-    stderr_hdlr.setLevel(logging.WARNING)
-
-    log.addHandler(stdout_hdlr)
-    log.addHandler(stderr_hdlr)
 
 
 def check_configuration(args):
@@ -283,12 +229,15 @@ def export_proxychains(filename, proxylist):
     utils.export_file(filename, proxylist)
 
 
+def cleanup():
+    """ Handle shutdown tasks """
+    log.info('Shutting down...')
+
+
 if __name__ == '__main__':
+    args = Config.get_args()
 
-    args = utils.get_args()
-
-    setup_workspace(args)
-    configure_logging(args, log)
+    utils.configure_logging(args, log)
     check_configuration(args)
     init_database(
         args.db_name, args.db_host, args.db_port, args.db_user, args.db_pass)
@@ -305,11 +254,15 @@ if __name__ == '__main__':
 
     try:
         work(proxy_tester, proxy_parsers)
-    except KeyboardInterrupt:
-        log.info('Shutting down...')
+    except (KeyboardInterrupt, SystemExit):
         output(args)
 
+        # Signal the Event to stop the threads
         proxy_tester.running.set()
         log.info('Waiting for proxy tester to shutdown...')
+    #except Exception as e:
+    #    log.exception(e)
+    finally:
+        cleanup()
+        sys.exit()
 
-    sys.exit(0)

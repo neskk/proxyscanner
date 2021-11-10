@@ -11,18 +11,22 @@ Scrap proxy lists from the web and test their connectivity.
 - Measures proxy average latency (response time).
 - MySQL database for keeping proxy status.
 - Output final proxy list in several formats: Normal, ProxyChains.
-
+- Docker container configuration included.
 
 ## Useful developer resources
 
+- [ConfigArgParse](https://github.com/bw2/ConfigArgParse)
 - [Peewee ORM](http://docs.peewee-orm.com/en/latest/)
 - [Python Requests](https://requests.readthedocs.io/en/master/)
 - [urllib3](https://urllib3.readthedocs.io/en/latest/)
 - [urllib3 - set max retries](https://stackoverflow.com/questions/15431044/can-i-set-max-retries-for-requests-request)
 - [Conversion from IP string to integer and backwards](https://stackoverflow.com/a/13294427)
-- [Coerse INET_ATON](https://github.com/coleifer/peewee/issues/342)
+- [Coerce INET_ATON](https://github.com/coleifer/peewee/issues/342)
 - [ProxyChains](https://github.com/haad/proxychains)
 - [IP2Location python library](https://www.ip2location.com/development-libraries/ip2location/python) - [GitHub](https://github.com/chrislim2888/IP2Location-Python)
+- [BeautifulSoup](https://beautiful-soup-4.readthedocs.io/en/latest/)
+- [Flask](https://flask.palletsprojects.com/en/2.0.x/)
+- [Jinja2](https://jinja2docs.readthedocs.io/en/stable/)
 
 ## Credits
 This site or product includes IP2Location LITE data available from [http://www.ip2location.com](http://www.ip2location.com).
@@ -45,7 +49,6 @@ We're not responsible for these proxies and we're not responsible for what users
 - requests==2.23.0
 - ip2location==8.4.1
 - ~~jsbeautifier==1.11.0~~ We're using a modified version of [packer.py](https://github.com/beautify-web/js-beautify/blob/master/python/jsbeautifier/unpackers/packer.py)
-
 
 ## TODO
 - Instead of dict handling models, use model objects and update proxies "real-time" on the database.
@@ -166,18 +169,70 @@ Proxy Scrapper:
                         <proto>://[<user>:<pass>@]<ip>:<port> Default: None.
 ```
 
-## Useful developer resources
 
-- [Python Requests](http://docs.python-requests.org/en/master/)
-- [urllib3](https://urllib3.readthedocs.io/en/latest/)
-- [urllib3 - set max retries](https://stackoverflow.com/questions/15431044/can-i-set-max-retries-for-requests-request)
-- [Peewee 2.10.2 API Documentation](http://docs.peewee-orm.com/en/2.10.2/peewee/api.html)
-- [Conversion from IP string to integer and backwards](https://stackoverflow.com/a/13294427)
-- [Coerse INET_ATON](https://github.com/coleifer/peewee/issues/342)
-- [ProxyChains](https://github.com/haad/proxychains)
-- [IP2Location python library](https://www.ip2location.com/developers/python)
+## Debugging with VS Code while using Docker containers
 
+1. Launch the containers with the task: `up-debug`
+2. Attach to the container using the launch config: `Python: Remote Attach`
+3. You should be able to debug, add breakpoints, etc.
 
-## Credits
+### Sources
 
-This software includes IP2Location LITE data available from [http://lite.ip2location.com](http://lite.ip2location.com)
+- Customize the Docker extension: https://code.visualstudio.com/docs/containers/reference
+- Debug containerized apps: https://code.visualstudio.com/docs/containers/debug-common
+- Use Docker Compose: https://code.visualstudio.com/docs/containers/docker-compose
+- Debug Python within a container: https://code.visualstudio.com/docs/containers/debug-python
+
+### tasks.json:
+
+```json
+{
+    "label": "up-debug",
+    "type": "docker-compose",
+    "dockerCompose": {
+        "up": {
+            "detached": true,
+            "build": true,
+        },
+        "files": [
+            "${workspaceFolder}/docker-compose.yml",
+            "${workspaceFolder}/docker-compose.debug.yml"
+        ]
+    }
+},
+{
+    "label": "up-database",
+    "type": "docker-compose",
+    "dockerCompose": {
+        "up": {
+            "detached": true,
+            "build": true,
+            "services": ["db"]
+        },
+        "files": [
+            "${workspaceFolder}/docker-compose.yml",
+            "${workspaceFolder}/docker-compose.debug.yml"
+        ]
+    }
+}
+```
+
+### launch.json
+
+```json
+{
+    "name": "Python: Remote Attach",
+    "type": "python",
+    "request": "attach",
+    "connect": {
+        "host": "localhost",
+        "port": 5678
+    },
+    "pathMappings": [
+        {
+            "localRoot": "${workspaceFolder}/app",
+            "remoteRoot": "/usr/src/app"
+        }
+    ]
+}
+```

@@ -23,3 +23,5 @@
 **/secrets.dev.yaml
 **/values.dev.yaml
 README.md
+app/downloads
+app/logs

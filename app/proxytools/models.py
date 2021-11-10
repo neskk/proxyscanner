@@ -7,27 +7,29 @@ import socket
 import struct
 import sys
 
-from peewee import (DatabaseProxy, Model, OperationalError, IntegrityError, CompositeKey,
-                    CharField, DateTimeField,
-                    IntegerField, SmallIntegerField, BigIntegerField)
+from peewee import *
 from playhouse.pool import PooledMySQLDatabase
 from playhouse.migrate import migrate, MySQLMigrator
 
 from datetime import datetime, timedelta
-from enum import Enum
+from enum import IntEnum
 
 from .utils import ip2int, int2ip
 
 
 log = logging.getLogger(__name__)
 
-# http://docs.peewee-orm.com/en/latest/peewee/database.html#dynamically-defining-a-database
+# https://docs.peewee-orm.com/en/latest/peewee/database.html#dynamically-defining-a-database
+# https://docs.peewee-orm.com/en/latest/peewee/playhouse.html#database-url
 db = DatabaseProxy()
 db_schema_version = 1
 db_step = 250
 
-# Connect to a MySQL database on network.
+#db = SqliteDatabase('sqlite-debug.db')
+
+
 def init_database(db_name, db_host, db_port, db_user, db_pass):
+    """ Create a pooled connection to MySQL database """
     log.info('Connecting to MySQL database on %s:%i...', db_host, db_port)
 
     database = PooledMySQLDatabase(
@@ -40,7 +42,7 @@ def init_database(db_name, db_host, db_port, db_user, db_pass):
         max_connections=None,
         charset='utf8mb4')
 
-    # Initialize Database Proxy
+    # Initialize DatabaseProxy
     db.initialize(database)
 
     try:
@@ -52,21 +54,21 @@ def init_database(db_name, db_host, db_port, db_user, db_pass):
     return db
 
 # Enum Classes
-class ProxyProtocol(Enum):
+class ProxyProtocol(IntEnum):
     HTTP = 0
     SOCKS4 = 1
     SOCKS5 = 2
 
 
-class ProxyStatus(Enum):
+class ProxyStatus(IntEnum):
     OK = 0
     UNKNOWN = 1
     ERROR = 2
     TIMEOUT = 3
     BANNED = 4
 
-
-# Custom fields
+# https://docs.peewee-orm.com/en/latest/peewee/models.html#field-types-table
+# Custom field types
 class Utf8mb4CharField(CharField):
     def __init__(self, max_length=191, *args, **kwargs):
         self.max_length = max_length
@@ -110,7 +112,8 @@ class EnumField(SmallIntegerField):
         return self.choices(value)
 
 
-# http://docs.peewee-orm.com/en/latest/peewee/models.html
+# https://docs.peewee-orm.com/en/latest/peewee/models.html#model-options-and-table-metadata
+# https://docs.peewee-orm.com/en/latest/peewee/models.html#meta-primary-key
 class BaseModel(Model):
     class Meta:
         database = db
@@ -259,7 +262,7 @@ class Proxy(BaseModel):
                      .dicts())
 
             for proxy in query:
-                proxy['ip'] = int2ip(proxy['ip'])
+                #proxy['ip'] = int2ip(proxy['ip'])
                 proxy['url'] = Proxy.url_format(proxy)
                 result.append(proxy)
 
@@ -290,7 +293,7 @@ class Proxy(BaseModel):
                      .dicts())
 
             for proxy in query:
-                proxy['ip'] = int2ip(proxy['ip'])
+                #proxy['ip'] = int2ip(proxy['ip'])
                 proxy['url'] = Proxy.url_format(proxy)
                 result.append(proxy)
 
@@ -369,16 +372,17 @@ class Proxy(BaseModel):
 
 
 class Version(BaseModel):
+    """ Database versioning model """
     key = Utf8mb4CharField()
     val = SmallIntegerField()
 
     class Meta:
-        # http://docs.peewee-orm.com/en/latest/peewee/models.html#meta-primary-key
         primary_key = False
 
 MODELS = [Proxy, Version]
 
 def create_tables():
+    """ Create tables in the database (skips existing) """
     with db:
         for table in MODELS:
             if not table.table_exists():
@@ -390,6 +394,7 @@ def create_tables():
 
 
 def drop_tables():
+    """ Drop all the tables in the database """
     with db:
         db.execute_sql('SET FOREIGN_KEY_CHECKS=0;')
         for table in MODELS:
@@ -400,37 +405,39 @@ def drop_tables():
         db.execute_sql('SET FOREIGN_KEY_CHECKS=1;')
 
 
+# https://docs.peewee-orm.com/en/latest/peewee/playhouse.html#schema-migrations
 def migrate_database_schema(old_ver):
+    """ Migrate database schema """
     log.info('Detected database version %i, updating to %i...',
              old_ver, db_schema_version)
 
     with db:
-        # Update database schema version.
+        # Update database schema version
         query = (Version
                  .update(val=db_schema_version)
                  .where(Version.key == 'schema_version'))
         query.execute()
 
-    # Perform migrations here.
+    # Perform migrations here
     migrator = MySQLMigrator(db)
 
     if old_ver < 2:
-        # Remove hash field unique index.
-        migrate(migrator.drop_index('proxy', 'proxy_hash'))
-        # Reset hash field in all proxies.
+        # Remove hash field unique index
+        migrate(migrator.drop_index('sample_model', 'sample_model_hash'))
+        # Reset hash field in all rows
         Proxy.update(hash=1).execute()
-        # Modify column type.
+        # Modify column type
         db.execute_sql(
             'ALTER TABLE `proxy` '
             'CHANGE COLUMN `hash` `hash` INT UNSIGNED NOT NULL;'
         )
-        # Re-hash all proxies.
+        # Re-hash all proxies
         Proxy.rehash_all()
-        # Recreate hash field unique index.
+        # Recreate hash field unique index
         migrate(migrator.add_index('proxy', ('hash',), True))
 
     if old_ver < 3:
-        # Add response time field.
+        # Add response time field
         migrate(
             migrator.add_column('proxy', 'latency',
                                 UIntegerField(index=True, null=True))
@@ -442,6 +449,7 @@ def migrate_database_schema(old_ver):
 
 
 def verify_database_schema():
+    """ Verify if database is properly initialized """
     if not Version.table_exists():
         log.info('Database schema is not created, initializing...')
         create_tables()
@@ -462,6 +470,7 @@ def verify_database_schema():
 
 
 def verify_table_encoding(db_name):
+    """ Verify if table collation is valid """
     with db:
         cmd_sql = '''
             SELECT table_name FROM information_schema.tables WHERE
