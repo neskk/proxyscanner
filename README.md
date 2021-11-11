@@ -51,6 +51,7 @@ We're not responsible for these proxies and we're not responsible for what users
 - ~~jsbeautifier==1.11.0~~ We're using a modified version of [packer.py](https://github.com/beautify-web/js-beautify/blob/master/python/jsbeautifier/unpackers/packer.py)
 
 ## TODO
+- Fix socksproxy scrapper
 - Instead of dict handling models, use model objects and update proxies "real-time" on the database.
 - Add PWD of start.py to all paths
 - Change structure of proxy tests: each one is now a table with its properties and a fk proxy hash.

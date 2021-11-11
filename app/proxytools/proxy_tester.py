@@ -51,6 +51,18 @@ class ProxyTester():
     STATUS_FORCELIST = [500, 502, 503, 504]
     STATUS_BANLIST = [403, 409]
 
+    """
+    data = [
+        request.headers.get('REMOTE_ADDR', ''),
+        request.headers.get('HTTP_X_FORWARDED_FOR', ''),
+        request.headers.get('HTTP_X_FORWARDED', ''),
+        request.headers.get('HTTP_CLIENT_IP', ''),
+        request.headers.get('HTTP_X_CLUSTER_CLIENT_IP', ''),
+        request.headers.get('HTTP_FORWARDED_FOR', ''),
+        request.headers.get('HTTP_FORWARDED', '')
+    ]
+    """
+
     def __init__(self, args):
         self.debug = args.verbose
         self.download_path = args.download_path
