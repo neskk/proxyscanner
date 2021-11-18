@@ -17,6 +17,8 @@ Scrap proxy lists from the web and test their connectivity.
 
 - [ConfigArgParse](https://github.com/bw2/ConfigArgParse)
 - [Peewee ORM](http://docs.peewee-orm.com/en/latest/)
+- [Querying the top N objects per group with Peewee ORM](https://charlesleifer.com/blog/querying-the-top-n-objects-per-group-with-peewee-orm/)
+- [MySQL JOIN the most recent row only?](https://stackoverflow.com/a/35965649/1546848)
 - [Python Requests](https://requests.readthedocs.io/en/master/)
 - [urllib3](https://urllib3.readthedocs.io/en/latest/)
 - [urllib3 - set max retries](https://stackoverflow.com/questions/15431044/can-i-set-max-retries-for-requests-request)

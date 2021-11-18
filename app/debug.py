@@ -234,6 +234,11 @@ def cleanup():
     log.info('Shutting down...')
 
 
+def print_l(list):
+    for el in list:
+        print(el)
+
+
 if __name__ == '__main__':
     args = Config.get_args()
 
@@ -242,27 +247,60 @@ if __name__ == '__main__':
     init_database(
         args.db_name, args.db_host, args.db_port, args.db_user, args.db_pass)
 
-    proxy_tester = ProxyTester(args)
-    proxy_parsers = [MixedParser(args)]
+    proxies = [
+        {
+            'ip': '123.1.1.1',
+            'port': '88',
+            'protocol': 'http',
+            #'tests': [ {'latency': 80, 'status': 0} ]
+        },
+        {
+            'ip': '123.2.2.2',
+            'port': '88',
+            'protocol': 'http',
+            #'tests': [ {'latency': 100, 'status': 0} ]
+        },
+    ]
 
-    protocol = args.proxy_protocol
-    if protocol is None or protocol == ProxyProtocol.HTTP:
-        proxy_parsers.append(HTTPParser(args))
+    Proxy.insert_x(proxies)
 
-    if protocol is None or protocol == ProxyProtocol.SOCKS5:
-        proxy_parsers.append(SOCKSParser(args))
+    print(f"Proxy.get_scan()")
+    q = Proxy.get_scan()
+    l = q.execute()
+    print_l(l)
+    
+    p1 = Proxy.get(1)
+    tests1 = [
+        {'proxy': p1, 'latency': 80, 'status': 0},
+        {'proxy': p1, 'latency': 100, 'status': 2}
+    ]
 
-    try:
-        work(proxy_tester, proxy_parsers)
-    except (KeyboardInterrupt, SystemExit):
-        output(args)
+    tq1 = ProxyTest.insert_many(tests1)
 
-        # Signal the Event to stop the threads
-        proxy_tester.running.set()
-        log.info('Waiting for proxy tester to shutdown...')
-    #except Exception as e:
-    #    log.exception(e)
-    finally:
-        cleanup()
-        sys.exit()
+    p2 = Proxy.get(2)
+    tests2 = [
+        {'proxy': p2, 'latency': 280, 'status': 2},
+        {'proxy': p2, 'latency': 200, 'status': 0}
+    ]
 
+    tq2 = ProxyTest.insert_many(tests2)
+
+    print(f"Proxy.latest_test()")
+    lq = Proxy.latest_test()
+    ll = lq.dicts()
+    print_l(ll)
+
+    print(f"Proxy.latest_testx()")
+    lqx = Proxy.latest_testx()
+    llx = lqx.dicts()
+    print_l(llx)
+
+    print(f"Proxy.all_test()")
+    tests_q = Proxy.all_test()
+    tests_res = tests_q.dicts()
+    print_l(tests_res)
+
+    print(f"Proxy.all_testx()")
+    testsx_q = Proxy.all_testx()
+    testsx_res = testsx_q.dicts()
+    print_l(testsx_res)
