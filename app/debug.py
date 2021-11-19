@@ -260,9 +260,15 @@ if __name__ == '__main__':
             'protocol': 'http',
             #'tests': [ {'latency': 100, 'status': 0} ]
         },
+        {
+            'ip': '123.3.3.3',
+            'port': '88',
+            'protocol': 'socks5',
+            #'tests': [ {'latency': 100, 'status': 0} ]
+        },
     ]
 
-    Proxy.insert_x(proxies)
+    Proxy.insert_bulk(proxies)
 
     print(f"Proxy.get_scan()")
     q = Proxy.get_scan()
@@ -284,23 +290,3 @@ if __name__ == '__main__':
     ]
 
     tq2 = ProxyTest.insert_many(tests2)
-
-    print(f"Proxy.latest_test()")
-    lq = Proxy.latest_test()
-    ll = lq.dicts()
-    print_l(ll)
-
-    print(f"Proxy.latest_testx()")
-    lqx = Proxy.latest_testx()
-    llx = lqx.dicts()
-    print_l(llx)
-
-    print(f"Proxy.all_test()")
-    tests_q = Proxy.all_test()
-    tests_res = tests_q.dicts()
-    print_l(tests_res)
-
-    print(f"Proxy.all_testx()")
-    testsx_q = Proxy.all_testx()
-    testsx_res = testsx_q.dicts()
-    print_l(testsx_res)
