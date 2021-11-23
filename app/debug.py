@@ -3,6 +3,7 @@
 
 import logging
 import os
+import random
 import sys
 import time
 
@@ -239,6 +240,37 @@ def print_l(list):
         print(el)
 
 
+
+def add_proxies(amount=3):
+    data = []
+    protocols = list(map(int, ProxyProtocol))
+    print(protocols)
+    for i in range(amount):
+        sub_ip = random.randint(1, 10)
+        ip = random.randint(1, 255)
+        data.append({
+            'ip': f"123.1.{sub_ip}.{ip}",
+            'port': random.choices([80, 8080, 99, 5000])[0],
+            'protocol': random.choices(protocols)[0]
+        })
+
+    q = Proxy.insert_bulk(data)
+    return q
+
+
+def add_proxytests(proxy_id, amount=3):
+    proxy = Proxy.get(proxy_id)
+    data = []
+    for i in range(amount):
+        data.append({
+            'proxy': proxy,
+            'latency': random.randint(50,5000),
+            'status': random.randint(0, 4)
+        })
+
+    q = ProxyTest.insert_many(data)
+    return q.execute()
+
 if __name__ == '__main__':
     args = Config.get_args()
 
@@ -251,42 +283,51 @@ if __name__ == '__main__':
         {
             'ip': '123.1.1.1',
             'port': '88',
-            'protocol': 'http',
+            'protocol': ProxyProtocol.HTTP,
             #'tests': [ {'latency': 80, 'status': 0} ]
         },
         {
             'ip': '123.2.2.2',
             'port': '88',
-            'protocol': 'http',
+            'protocol': ProxyProtocol.HTTP,
             #'tests': [ {'latency': 100, 'status': 0} ]
         },
         {
             'ip': '123.3.3.3',
             'port': '88',
-            'protocol': 'socks5',
+            'protocol': ProxyProtocol.SOCKS4,
+            'username': 'neskk',
+            'password': 'test'
             #'tests': [ {'latency': 100, 'status': 0} ]
         },
     ]
 
     Proxy.insert_bulk(proxies)
 
-    print(f"Proxy.get_scan()")
-    q = Proxy.get_scan()
+    add_proxies()
+    #add_proxytests(1,5)
+    #add_proxytests(2,5)
+    
+    print(f"Proxy.untested()")
+    q = Proxy.untested()
+    print(q.sql())
     l = q.execute()
     print_l(l)
-    
-    p1 = Proxy.get(1)
-    tests1 = [
-        {'proxy': p1, 'latency': 80, 'status': 0},
-        {'proxy': p1, 'latency': 100, 'status': 2}
-    ]
 
-    tq1 = ProxyTest.insert_many(tests1)
+    print(f"Proxy.retest()")
+    q = Proxy.retest()
+    print(q.sql())
+    l = q.execute()
+    print_l(l)
 
-    p2 = Proxy.get(2)
-    tests2 = [
-        {'proxy': p2, 'latency': 280, 'status': 2},
-        {'proxy': p2, 'latency': 200, 'status': 0}
-    ]
+    print(f"Proxy.valid()")
+    q = Proxy.valid()
+    print(q.sql())
+    l = q.execute()
+    print_l(l)
 
-    tq2 = ProxyTest.insert_many(tests2)
+""" 
+    ptq = ProxyTest.select(ProxyTest).where(ProxyTest.proxy == 1)
+
+
+"""

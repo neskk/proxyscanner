@@ -67,6 +67,7 @@ class ProxyStatus(IntEnum):
     TIMEOUT = 3
     BANNED = 4
 
+
 # https://docs.peewee-orm.com/en/latest/peewee/models.html#field-types-table
 # Custom field types
 class Utf8mb4CharField(CharField):
@@ -134,43 +135,13 @@ class ProxyTest(BaseModel):
         return query
 
     @staticmethod
-    def to_scan(limit=1000, age_secs=3600, exclude_ids=[], status=[ProxyStatus.UNKNOWN, ProxyStatus.TIMEOUT, ProxyStatus.ERROR]):
+    def valid(age_secs=3600, exclude_ids=[]):
         """
-        Retrieve proxies to test
+        Retrieve proxies with the latest valid tests.
 
         Args:
-            limit (int, optional): Defaults to 1000.
-            age_secs (int, optional): Min test age. Defaults to 3600 sec.
-            status (list, optional): [description]. Defaults to [ProxyStatus.UNKNOWN, ProxyStatus.TIMEOUT, ProxyStatus.ERROR].
-
-        Returns:
-            query: [(proxy_id, proxytest_id), ...]
-        """
-
-        min_age = datetime.utcnow() - timedelta(seconds=age_secs)
-        conditions = ((ProxyTest.created < min_age) &
-                      (ProxyTest.status << status))
-
-        if exclude_ids:
-            conditions &= (ProxyTest.proxy.not_in(exclude_ids))
-
-        query = (ProxyTest
-                 .select(ProxyTest.proxy, fn.MAX(ProxyTest.id))
-                 .where(conditions)
-                 .group_by(ProxyTest.proxy)
-                 .limit(limit))
-
-        return query
-
-
-    @staticmethod
-    def latest_valid(limit=1000, age_secs=3600):
-        """
-        Retrieve proxies latest valid tests
-
-        Args:
-            limit (int, optional): Defaults to 1000.
-            age_secs (int, optional): Defaults to 3600.
+            age_secs (int, optional): Maximum test age. Defaults to 3600 secs.
+            exclude_ids (list, optional): Ignore these proxy IDs. Defaults to [].
 
         Returns:
             query: [(proxy_id, proxytest_id), ...]
@@ -180,18 +151,51 @@ class ProxyTest(BaseModel):
         conditions = ((ProxyTest.created > max_age) &
                       (ProxyTest.status == ProxyStatus.OK))
 
+        if exclude_ids:
+            conditions &= (ProxyTest.proxy.not_in(exclude_ids))
+
         query = (ProxyTest
                  .select(ProxyTest.proxy, fn.MAX(ProxyTest.id))
                  .where(conditions)
-                 .group_by(ProxyTest.proxy)
-                 .limit(limit))
+                 .group_by(ProxyTest.proxy))
+        return query
+
+
+    @staticmethod
+    def retest(age_secs=3600, exclude_ids=[], statuses=[ProxyStatus.UNKNOWN, ProxyStatus.ERROR, ProxyStatus.TIMEOUT]):
+        """
+        Retrieve proxies that require a new test.
+
+        BROKEN: this gives me the last invalid, does not say the last test was invalid.
+
+        Args:
+            age_secs (int, optional): Minimum cooldown time. Defaults to 3600 secs.
+            exclude_ids (list, optional): Ignore these proxy IDs. Defaults to [].
+            statuses (list, optional): Defaults to [ProxyStatus.UNKNOWN, ProxyStatus.ERROR, ProxyStatus.TIMEOUT].
+
+        Returns:
+            query: [(proxy_id, proxytest_id), ...]
+        """
+
+        min_age = datetime.utcnow() - timedelta(seconds=age_secs)
+        conditions = ((ProxyTest.created < min_age) &
+                      (ProxyTest.status << statuses))
+
+        if exclude_ids:
+            conditions &= (ProxyTest.proxy.not_in(exclude_ids))
+
+        query = (ProxyTest
+                 .select(ProxyTest.proxy, fn.MAX(ProxyTest.id))
+                 .where(conditions)
+                 .group_by(ProxyTest.proxy))
         return query
 
     @staticmethod
-    def latest_tests():
+    def latest_tests(statuses=[]):
         """ Retrieve proxies latest tests """
         query = (ProxyTest
                  .select(ProxyTest.proxy, fn.MAX(ProxyTest.id))
+                 .where(ProxyTest.status << statuses)
                  .group_by(ProxyTest.proxy))
         return query
 
@@ -219,91 +223,38 @@ class ProxyTest(BaseModel):
                  .where(ProxyTest.proxy == proxy_id))
         return query
 
-
-
     @staticmethod
-    def valid(limit=1000, age_secs=3600):
-        max_age = datetime.utcnow() - timedelta(seconds=age_secs)
-        conditions = ((ProxyTest.created > max_age) &
-                      (ProxyTest.status == ProxyStatus.OK))
+    def delete_old(age_days=365):
+        """
+        Delete old proxy tests.
 
-        return (ProxyTest
-                .where(conditions)
-                .order_by(ProxyTest.created.desc())
-                .limit(limit))
+        Args:
+            age_days (int, optional): Maximum test age. Defaults to 365 days.
 
-    @staticmethod
-    def scan(limit=1000, age_secs=3600):
-        min_age = datetime.utcnow() - timedelta(seconds=age_secs)
-        conditions = ((ProxyTest.created < min_age) &
-                      (ProxyTest.status != ProxyStatus.OK))
+        Returns:
+            query: Delete query
+        """
+        max_age = datetime.utcnow() - timedelta(days=age_days)
+        conditions = (ProxyTest.created > max_age)
 
-        return (ProxyTest
-                .where(conditions)
-                .order_by(ProxyTest.created.desc(), ProxyTest.status)
-                .limit(limit))
-
-    @staticmethod
-    def get_valid(limit=1000, age_secs=3600, protocol=None):
-        result = []
-        max_age = datetime.utcnow() - timedelta(seconds=age_secs)
-        conditions = ((ProxyTest.test_date > max_age) &
-                      (ProxyTest.status == ProxyStatus.OK))
-        if protocol is not None:
-            conditions &= (Proxy.protocol == protocol)
-
-        try:
-            query = (ProxyTest
-                     .select(ProxyTest, Proxy)
-                     .join(Proxy)
-                     .where(conditions)
-                     .order_by(ProxyTest.test_date.asc())
-                     .limit(limit)
-                     .dicts())
-
-            for proxy in query:
-                #proxy['ip'] = int2ip(proxy['ip'])
-                proxy['url'] = Proxy.url_format(proxy)
-                result.append(proxy)
-
-        except OperationalError as e:
-            log.exception('Failed to get valid proxies from database: %s', e)
-
-        return result
-
-
-    @staticmethod
-    def get_scan(limit=1000, exclude_ids=[], age_secs=3600, protocol=None):
-        result = []
-        min_age = datetime.utcnow() - timedelta(seconds=age_secs)
-        conditions = ((ProxyTest.test_date < min_age) |
-                      Proxy.scan_date.is_null())
-        if exclude_ids:
-            conditions &= (Proxy.id.not_in(exclude_ids))
-
-        if protocol is not None:
-            conditions &= (Proxy.protocol == protocol)
-
-        try:
-            query = (ProxyTest
-                     .select(ProxyTest, Proxy)
-                     .join(Proxy)
-                     .where(conditions)
-                     .order_by(Proxy.scan_date.asc(),
-                               Proxy.insert_date.asc())
-                     .limit(limit)
-                     .dicts())
-
-            for proxy in query:
-                #proxy['ip'] = int2ip(proxy['ip'])
-                proxy['url'] = Proxy.url_format(proxy)
-                result.append(proxy)
-
-        except OperationalError as e:
-            log.exception('Failed to get proxies to scan from database: %s', e)
-
+        query = (ProxyTest
+                 .select(ProxyTest.proxy, fn.MAX(ProxyTest.id))
+                 .where(conditions)
+                 .group_by(ProxyTest.proxy))
         return query
+        """
+        rows = 0
+        try:
+            with db:
+                query = (Proxy
+                         .delete()
+                         .where(Proxy.fail_count >= 5))
+                rows = query.execute()
+        except OperationalError as e:
+            log.exception('Failed to delete failed proxies: %s', e)
 
+        log.info('Deleted %d failed proxies from database.', rows)
+        """
 
 
 class Proxy(BaseModel):
@@ -318,8 +269,8 @@ class Proxy(BaseModel):
 
     class Meta:
         indexes = (
-            # create a unique on ip/port/protocol
-            (('ip', 'port', 'protocol'), True),
+            # create a unique on ip/port
+            (('ip', 'port'), True),
         )
 
     def url(self, no_protocol=False):
@@ -338,7 +289,7 @@ class Proxy(BaseModel):
             url = f"{self.username}:{self.password}@{url}"
 
         if not no_protocol:
-            protocol = self.protocol.name.lower()
+            protocol = ProxyProtocol(self.protocol).name.lower()
             url = f"{protocol}://{url}"
 
         return url
@@ -393,20 +344,20 @@ class Proxy(BaseModel):
 
         return url
 
-
     @staticmethod
-    def latest_joined():
+    def latest_tests(limit=1000):
         """
-        Join query with the latest tested proxies
+        Latest tested proxies using a join query.
 
         Returns:
-            query: Proxy/ProxyTest join query
+            query: Proxy model query.
         """
         ProxyTestAlias = ProxyTest.alias()
 
         subquery = (ProxyTestAlias
                     .select(fn.MAX(ProxyTestAlias.id))
-                    .where(ProxyTestAlias.proxy == Proxy.id))
+                    .where(ProxyTestAlias.proxy == Proxy.id)
+                    .limit(limit))
 
         query = (Proxy
                  .select(Proxy, ProxyTest)
@@ -417,6 +368,24 @@ class Proxy(BaseModel):
 
     @staticmethod
     def untested(limit=1000, exclude_ids=[], protocol=None):
+        """
+        Get a list of untested proxies.
+
+        Used query:
+        SELECT id FROM A WHERE id NOT IN (SELECT id FROM B)
+
+        Alternative queries:
+        SELECT id FROM A WHERE NOT EXISTS (SELECT * FROM B WHERE B.id=A.id)
+        SELECT id FROM A LEFT JOIN B ON A.id=B.id WHERE B.id IS NULL
+
+        Args:
+            limit (int, optional): Defaults to 1000.
+            exclude_ids (list, optional): Ignore these proxy IDs. Defaults to [].
+            protocol (ProxyProtocol, optional): Filter by protocol. Defaults to None.
+
+        Returns:
+            query: Proxy models that have not been tested.
+        """
         conditions = (Proxy.id.not_in(ProxyTest.select(ProxyTest.proxy)))
 
         if exclude_ids:
@@ -425,9 +394,6 @@ class Proxy(BaseModel):
         if protocol is not None:
             conditions &= (Proxy.protocol == protocol)
 
-        #SELECT id FROM A WHERE NOT EXISTS (SELECT * FROM B WHERE B.id=A.id)
-        #SELECT id FROM A LEFT JOIN B ON A.id=B.id WHERE B.id IS NULL
-        #SELECT id FROM A WHERE id NOT IN (SELECT id FROM B)
         query = (Proxy
                  .select(Proxy)
                  .where(conditions)
@@ -436,80 +402,27 @@ class Proxy(BaseModel):
 
         return query
 
-
     @staticmethod
-    def get_valid(limit=1000, anonymous=True, age_secs=3600, protocol=None):
-        result = []
-        max_age = datetime.utcnow() - timedelta(seconds=age_secs)
-        conditions = ((Proxy.scan_date > max_age) &
-                      (Proxy.fail_count == 0) &
-                      (Proxy.niantic == ProxyStatus.OK) &
-                      (Proxy.ptc_login == ProxyStatus.OK) &
-                      (Proxy.ptc_signup == ProxyStatus.OK))
-        if anonymous:
-            conditions &= (Proxy.anonymous == ProxyStatus.OK)
+    def valid(limit=1000, age_secs=3600, exclude_ids=[], protocol=None):
+        """
+        Get a list of valid tested proxies.
 
-        if protocol is not None:
-            conditions &= (Proxy.protocol == protocol)
+        Args:
+            limit (int, optional): Defaults to 1000.
+            age_secs (int, optional): Maximum test age. Defaults to 3600 secs.
+            exclude_ids (list, optional): Ignore these proxy IDs. Defaults to [].
+            protocol (ProxyProtocol, optional): Filter by protocol. Defaults to None.
 
-        try:
-            query = (Proxy
-                     .select()
-                     .where(conditions)
-                     .order_by(Proxy.latency.asc())
-                     .limit(limit)
-                     .dicts())
+        Returns:
+            query: Proxies that have been validated.
+        """
+        subquery = ProxyTest.valid(age_secs, exclude_ids)
+        res = subquery.tuples().execute()
+        proxy_ids = []
+        if res.count > 0:
+            proxy_ids, _ = zip(*res)
 
-            for proxy in query:
-                #proxy['ip'] = int2ip(proxy['ip'])
-                proxy['url'] = Proxy.url_format(proxy)
-                result.append(proxy)
-
-        except OperationalError as e:
-            log.exception('Failed to get valid proxies from database: %s', e)
-
-        return result
-
-    @staticmethod
-    def get_scan(limit=1000, exclude_ids=[], age_secs=3600, protocol=None):
-        result = []
-        min_age = datetime.utcnow() - timedelta(seconds=age_secs)
-        conditions = ((ProxyTest.id.is_null() |
-                      (ProxyTest.created < min_age &
-                       ProxyTest.status != ProxyStatus.OK)))
-        if exclude_ids:
-            conditions &= (Proxy.id.not_in(exclude_ids))
-
-        if protocol is not None:
-            conditions &= (Proxy.protocol == protocol)
-
-        try:
-            query = (Proxy
-                     .select(Proxy, ProxyTest)
-                     .join(ProxyTest, JOIN.LEFT_OUTER)
-                     .where(conditions)
-                     .order_by(ProxyTest.status.asc(), # first get the lower status
-                               ProxyTest.created.asc())
-                     .limit(limit)
-                     .distinct()
-                     .dicts())
-
-            for proxy in query:
-                #proxy['ip'] = int2ip(proxy['ip'])
-                proxy['url'] = Proxy.url_format(proxy)
-                result.append(proxy)
-
-        except OperationalError as e:
-            log.exception('Failed to get proxies to scan from database: %s', e)
-
-        return query
-
-    def get_scanx(limit=1000, age_secs=3600, exclude_ids=[], protocol=None):
-
-        proxy_ids, proxytest_ids = zip(*ProxyTest.to_scan(limit, age_secs, exclude_ids).tuples())
-
-        conditions = ((Proxy.id.not_in(ProxyTest.select(ProxyTest.proxy))) |
-                      (Proxy.id.in_(proxy_ids)))
+        conditions = (Proxy.id.in_(proxy_ids))
 
         if exclude_ids:
             conditions &= (Proxy.id.not_in(exclude_ids))
@@ -523,14 +436,49 @@ class Proxy(BaseModel):
                 .order_by(Proxy.created.asc())  # get older first
                 .limit(limit))
 
-        """ for proxy in query:
-            #proxy['ip'] = int2ip(proxy['ip'])
-            proxy['url'] = Proxy.url_format(proxy)
-            print(proxy['url']) """
+        return query
+
+
+    @staticmethod
+    def retest(limit=1000, exclude_ids=[], age_secs=3600, protocol=None):
+        """
+        Get a list of proxies that require testing.
+
+        Args:
+            limit (int, optional): Defaults to 1000.
+            age_secs (int, optional): Maximum test age. Defaults to 3600 secs.
+            exclude_ids (list, optional): Ignore these proxy IDs. Defaults to [].
+            protocol (ProxyProtocol, optional): Filter by protocol. Defaults to None.
+
+        Returns:
+            query: Proxies that need to be retested.
+        """
+        subquery = ProxyTest.retest(age_secs, exclude_ids)
+        res = subquery.tuples().execute()
+        log.debug("Subquery res: %s", res)
+        proxy_ids = []
+        if res.count > 0:
+            proxy_ids, _ = zip(*res)
+            log.debug("Proxy IDs: %s", proxy_ids)
+
+        conditions = (Proxy.id.in_(proxy_ids))
+
+        if exclude_ids:
+            conditions &= (Proxy.id.not_in(exclude_ids))
+
+        if protocol is not None:
+            conditions &= (Proxy.protocol == protocol)
+
+        query = (Proxy
+                .select(Proxy)
+                .where(conditions)
+                .order_by(Proxy.created.asc())  # get older first
+                .limit(limit))
 
         return query
 
-    # https://docs.peewee-orm.com/en/latest/peewee/querying.html#inserting-rows-in-batches    @staticmethod
+    # https://docs.peewee-orm.com/en/latest/peewee/querying.html#inserting-rows-in-batches
+    @staticmethod
     def insert_bulk(proxylist):
         """
         Insert new proxies to the database.
@@ -549,9 +497,15 @@ class Proxy(BaseModel):
                 with db.atomic():
                     query = (Proxy
                         .insert_many(batch)
-                        .on_conflict_ignore()
-                        .execute())
-                    if query:
+                        .on_conflict(
+                            preserve=[
+                                Proxy.username,
+                                Proxy.password,
+                                Proxy.protocol,
+                                Proxy.modified
+                            ]
+                        ))
+                    if query.execute():
                         count += len(batch)
             except IntegrityError as e:
                 log.exception('Unable to insert new proxies: %s', e)
@@ -560,43 +514,6 @@ class Proxy(BaseModel):
 
         log.info('Inserted %d new proxies into the database.', count)
         return count
-
-    @staticmethod
-    def clean_failed():
-        rows = 0
-        try:
-            with db:
-                query = (Proxy
-                         .delete()
-                         .where(Proxy.fail_count >= 5))
-                rows = query.execute()
-        except OperationalError as e:
-            log.exception('Failed to delete failed proxies: %s', e)
-
-        log.info('Deleted %d failed proxies from database.', rows)
-
-    @staticmethod
-    def rehash_all():
-        rows = 0
-        query = Proxy.select().dicts().execute()
-        log.info('Re-hashing proxies on the database.')
-        for proxy in query:
-            try:
-                proxy_hash = Proxy.generate_hash(proxy)
-                if proxy_hash != proxy['hash']:
-                    proxy['hash'] = proxy_hash
-                    query = (Proxy
-                             .update(hash=proxy_hash)
-                             .where((Proxy.ip == proxy['ip']) &
-                                    (Proxy.port == proxy['port'])))
-                    if query.execute():
-                        rows += 1
-
-            except Exception as e:
-                log.exception('Failed to re-hash proxy: %s', e)
-
-        log.info('Re-hashed %d proxies on the database.', rows)
-
 
 
 class Version(BaseModel):
