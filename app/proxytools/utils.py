@@ -9,6 +9,8 @@ import struct
 import sys
 import time
 
+from timeit import default_timer as timer
+
 log = logging.getLogger(__name__)
 
 
@@ -139,3 +141,22 @@ def ip2int(addr):
 
 def int2ip(addr):
     return socket.inet_ntoa(struct.pack('!I', addr))
+
+
+def time_func(func):
+    """ Wrapper function to measure the execution time of a function """
+    def wrap_func(*args, **kwargs):
+        t1 = timer()
+        result = func(*args, **kwargs)
+        t2 = timer()
+        print(f'Function {func.__name__!r} executed in {(t2-t1):.4f}s')
+        return result
+    return wrap_func
+
+
+def print_dicts(func):
+    """ Wrapper function to print the dicts query """
+    def wrap_func(*args, **kwargs):
+        result = [m for m in func(*args, **kwargs).dicts()]
+        return result
+    return wrap_func

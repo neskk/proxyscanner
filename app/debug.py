@@ -7,13 +7,13 @@ import random
 import sys
 import time
 
-from timeit import default_timer
+from timeit import default_timer as timer
 
 from proxytools import utils
 from proxytools.config import Config
 from proxytools.proxy_tester import ProxyTester
 from proxytools.proxy_parser import MixedParser, HTTPParser, SOCKSParser
-from proxytools.models import init_database, Proxy, ProxyTest, ProxyProtocol
+from proxytools.models import init_database, Proxy, ProxyTest, ProxyProtocol, ProxyStatus
 
 log = logging.getLogger()
 
@@ -239,18 +239,17 @@ def print_l(list):
     for el in list:
         print(el)
 
-
+def random_ip():
+    return utils.int2ip(random.randint(1, 0xffffffff))
 
 def add_proxies(amount=3):
     data = []
     protocols = list(map(int, ProxyProtocol))
-    print(protocols)
     for i in range(amount):
-        sub_ip = random.randint(1, 10)
-        ip = random.randint(1, 255)
+        port = random.randint(1, 8000)
         data.append({
-            'ip': f"123.1.{sub_ip}.{ip}",
-            'port': random.choices([80, 8080, 99, 5000])[0],
+            'ip': random_ip(),
+            'port': port,
             'protocol': random.choices(protocols)[0]
         })
 
@@ -258,18 +257,45 @@ def add_proxies(amount=3):
     return q
 
 
-def add_proxytests(proxy_id, amount=3):
-    proxy = Proxy.get(proxy_id)
+def add_proxytests(amount=3, only_valid=False, proxy_id=None):
+    if proxy_id:
+        proxy = Proxy.get(proxy_id)
+    else:
+        proxy = Proxy.get_random()
+
     data = []
+
+    if only_valid:
+        statuses = [ProxyStatus.OK]
+    else:
+        statuses = list(map(int, ProxyStatus))
+
     for i in range(amount):
         data.append({
             'proxy': proxy,
-            'latency': random.randint(50,5000),
-            'status': random.randint(0, 4)
+            'latency': random.randint(50, 5000),
+            'status': random.choices(statuses)[0]
         })
 
     q = ProxyTest.insert_many(data)
     return q.execute()
+
+
+def populate_data(proxy_count=100000, test_count=1000000):
+    log.info("Inserting %d proxies...", proxy_count)
+    start_time = timer()
+    #add_proxies(proxy_count)
+    elapsed_time = timer() - start_time
+    log.info("Inserting %d proxies took: %s", proxy_count, elapsed_time)
+
+    log.info("Inserting %d tests...", test_count)
+    testspp = int(test_count / proxy_count)
+    start_time = timer()
+    for proxy in Proxy.get_all():
+        add_proxytests(testspp, False, proxy['id'])
+    elapsed_time = timer() - start_time
+    log.info("Inserting %d tests took: %s", test_count, elapsed_time)
+
 
 if __name__ == '__main__':
     args = Config.get_args()
@@ -305,29 +331,16 @@ if __name__ == '__main__':
     Proxy.insert_bulk(proxies)
 
     add_proxies()
-    #add_proxytests(1,5)
-    #add_proxytests(2,5)
+    add_proxytests(2, False, 1)
+    add_proxytests(1, True, 1)
+
+    def query_valid():
+        t_start = timer()
+        l = [m for m in Proxy.valid().dicts()]
+        log.debug(f'Proxy.valid executed in {(timer()-t_start):.4f}s')
+        print(l)
     
-    print(f"Proxy.untested()")
-    q = Proxy.untested()
-    print(q.sql())
-    l = q.execute()
-    print_l(l)
-
-    print(f"Proxy.retest()")
-    q = Proxy.retest()
-    print(q.sql())
-    l = q.execute()
-    print_l(l)
-
-    print(f"Proxy.valid()")
-    q = Proxy.valid()
-    print(q.sql())
-    l = q.execute()
-    print_l(l)
-
 """ 
     ptq = ProxyTest.select(ProxyTest).where(ProxyTest.proxy == 1)
-
 
 """
