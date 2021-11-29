@@ -64,8 +64,8 @@ class ProxyProtocol(IntEnum):
 class ProxyStatus(IntEnum):
     OK = 0
     UNKNOWN = 1
-    ERROR = 2
-    TIMEOUT = 3
+    TIMEOUT = 2
+    ERROR = 3
     BANNED = 4
 
 
@@ -137,7 +137,7 @@ class ProxyTest(BaseModel):
         """
         Retrieve proxies with the latest tests.
 
-        Tested for 100k proxies and 20M tests executed in 0.0051s
+        0.0051s with 100k proxies and 20M tests
 
         Args:
             age_secs (int, optional): Maximum test age. Defaults to 3600 secs.
@@ -162,27 +162,17 @@ class ProxyTest(BaseModel):
 
     @staticmethod
     def max_agex(age_secs=3600, exclude_ids=[], statuses=[]):
-        """
-        Retrieve proxies with the latest tests.
-
-        Tested for 100k proxies and 20M tests executed in 0.0051s
-
-        Args:
-            age_secs (int, optional): Maximum test age. Defaults to 3600 secs.
-            exclude_ids (list, optional): Ignore these proxy IDs. Defaults to [].
-
-        Returns:
-            query: [(proxy_id, proxytest_id), ...]
-        """
-
         max_age = datetime.utcnow() - timedelta(seconds=age_secs)
         conditions = (ProxyTest.created > max_age)
 
         if exclude_ids:
             conditions &= (ProxyTest.proxy.not_in(exclude_ids))
 
+        if statuses:
+            conditions &= (ProxyTest.status.in_(statuses))
+
         query = (ProxyTest
-                 .select(ProxyTest.proxy, fn.MAX(ProxyTest.id))
+                 .select(ProxyTest.proxy, fn.COUNT(ProxyTest.id).alias('count'), fn.SUM(ProxyTest.status).alias('score'))
                  .where(conditions)
                  .group_by(ProxyTest.proxy))
         return query
@@ -212,6 +202,28 @@ class ProxyTest(BaseModel):
                  .select(ProxyTest.proxy, fn.MAX(ProxyTest.id))
                  .where(conditions)
                  .group_by(ProxyTest.proxy))
+        return query
+
+    
+    @staticmethod
+    def min_agex(age_secs=3600, exclude_ids=[], limit=1000):
+
+        subquery = ProxyTest.max_age(age_secs, exclude_ids)
+        max_age = datetime.utcnow() - timedelta(seconds=age_secs)
+        conditions = (ProxyTest.created > max_age)
+
+        if exclude_ids:
+            conditions &= (ProxyTest.proxy.not_in(exclude_ids))
+
+        subquery = (ProxyTest
+                    .select(fn.MAX(ProxyTest.id))
+                    .where(conditions)
+                    .group_by(ProxyTest.proxy))
+
+
+        query = (ProxyTest
+                 .select(ProxyTest.proxy, ProxyTest.id)
+                 .where(ProxyTest.id.not_in(subquery)))
         return query
 
 

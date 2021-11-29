@@ -235,8 +235,10 @@ def cleanup():
     log.info('Shutting down...')
 
 
-def print_l(list):
-    for el in list:
+def print_l(data, limit=100):
+    for idx, el in enumerate(data):
+        if idx >= limit:
+            break
         print(el)
 
 def random_ip():
@@ -281,7 +283,7 @@ def add_proxytests(amount=3, only_valid=False, proxy_id=None):
     return q.execute()
 
 
-def populate_data(proxy_count=100000, test_count=1000000):
+def populate_data(proxy_count=100, test_count=1000):
     log.info("Inserting %d proxies...", proxy_count)
     start_time = timer()
     #add_proxies(proxy_count)
@@ -291,7 +293,7 @@ def populate_data(proxy_count=100000, test_count=1000000):
     log.info("Inserting %d tests...", test_count)
     testspp = int(test_count / proxy_count)
     start_time = timer()
-    for proxy in Proxy.get_all():
+    for proxy in Proxy.get_random(proxy_count).dicts():
         add_proxytests(testspp, False, proxy['id'])
     elapsed_time = timer() - start_time
     log.info("Inserting %d tests took: %s", test_count, elapsed_time)
@@ -333,12 +335,30 @@ if __name__ == '__main__':
     add_proxies()
     add_proxytests(2, False, 1)
     add_proxytests(1, True, 1)
+    add_proxytests(3, True, 2)
+    add_proxytests(5, False, 2)
 
     def query_valid():
         t_start = timer()
         l = [m for m in Proxy.valid().dicts()]
         log.debug(f'Proxy.valid executed in {(timer()-t_start):.4f}s')
-        print(l)
+        print_l(l)
+    
+    def query_count_test_status(age_secs=3600, exclude_ids=[], statuses=[]):
+        t_start = timer()
+        l = [m for m in ProxyTest.max_age(age_secs, exclude_ids).dicts()]
+        log.debug(f'Proxy.max_age executed in {(timer()-t_start):.4f}s')
+        print_l(l)
+
+        t_start = timer()
+        l = [m for m in ProxyTest.max_agex(age_secs*24, exclude_ids, statuses).dicts()]
+        log.debug(f'Proxy.max_agex executed in {(timer()-t_start):.4f}s')
+        print_l(l)
+
+        t_start = timer()
+        l = [m for m in ProxyTest.min_agex(age_secs, exclude_ids).limit(100).dicts()]
+        log.debug(f'Proxy.min_agex executed in {(timer()-t_start):.4f}s')
+        print_l(l)
     
 """ 
     ptq = ProxyTest.select(ProxyTest).where(ProxyTest.proxy == 1)
