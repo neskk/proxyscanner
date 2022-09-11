@@ -54,6 +54,7 @@ def init_database(db_name, db_host, db_port, db_user, db_pass):
         sys.exit(1)
     return db
 
+
 # Enum Classes
 class ProxyProtocol(IntEnum):
     HTTP = 0
@@ -125,6 +126,7 @@ class BaseModel(Model):
 
 class ProxyTest(BaseModel):
     id = BigAutoField()
+    # Note: we use deferred FK because of circular reference in Proxy
     proxy = DeferredForeignKey('Proxy', backref='tests')
     latency = UIntegerField(index=True, null=True)
     status = USmallIntegerField(index=True, default=ProxyStatus.UNKNOWN)
