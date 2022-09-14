@@ -4,16 +4,13 @@
 import configargparse
 import os
 import sys
-import time
-import logging
 
-from utils import LogFilter
+from .models import ProxyProtocol
 
 
 class Config:
     """ Singleton class that parses and holds all the configuration arguments """
     __args = None
-    __logger = None
 
     @staticmethod
     def get_args():
@@ -23,12 +20,23 @@ class Config:
         return Config.__args
 
     def __init__(self):
-        """ Parse config/cli arguments and setup workspace """
+        """ Parse config/CLI arguments and setup workspace """
         if Config.__args is not None:
             raise Exception("This class is a singleton!")
         else:
             Config.__args = get_args()
+            self.__check_config()
             self.__setup_workspace()
+
+    def __check_config(self):
+        if not self.__args.proxy_file and not self.__args.proxy_scrap:
+            raise RuntimeError('You must supply a proxylist file or enable scrapping!')
+
+        if not self.__args.proxy_judge:
+            raise RuntimeError('You must specify a URL for an AZenv proxy judge.')
+
+        if self.__args.tester_max_concurrency <= 0:
+            raise RuntimeError('Proxy tester max concurrency must be greater than zero.')
 
     def __setup_workspace(self):
         if not os.path.exists(self.__args.log_path):
@@ -39,45 +47,11 @@ class Config:
             # Create directory for downloaded files.
             os.mkdir(self.__args.download_path)
 
-    @staticmethod
-    def configure_logging(log):
-        """ Configure root logger """
-        if Config.__args is None:
-            Config()
 
-        date = time.strftime('%Y%m%d_%H%M')
-        filename = os.path.join(Config.__args.log_path, '{}-proxyscanner.log'.format(date))
-        filelog = logging.FileHandler(filename)
-        formatter = logging.Formatter(
-            '%(asctime)s [%(threadName)18s][%(module)20s][%(levelname)8s] '
-            '%(message)s')
-        filelog.setFormatter(formatter)
-        log.addHandler(filelog)
-
-        if Config.__args.verbose:
-            log.setLevel(logging.DEBUG)
-            log.debug('Running in verbose mode (-v).')
-        else:
-            log.setLevel(logging.INFO)
-
-        logging.getLogger('peewee').setLevel(logging.INFO)
-        logging.getLogger('requests').setLevel(logging.WARNING)
-        logging.getLogger('urllib3').setLevel(logging.ERROR)
-
-        # Redirect messages lower than WARNING to stdout
-        stdout_hdlr = logging.StreamHandler(sys.stdout)
-        stdout_hdlr.setFormatter(formatter)
-        log_filter = LogFilter(logging.WARNING)
-        stdout_hdlr.addFilter(log_filter)
-        stdout_hdlr.setLevel(5)
-
-        # Redirect messages equal or higher than WARNING to stderr
-        stderr_hdlr = logging.StreamHandler(sys.stderr)
-        stderr_hdlr.setFormatter(formatter)
-        stderr_hdlr.setLevel(logging.WARNING)
-
-        log.addHandler(stdout_hdlr)
-        log.addHandler(stderr_hdlr)
+###############################################################################
+# ConfigArgParse definitions for current application.
+# The following code should have minimal dependencies.
+###############################################################################
 
 
 def get_args():
@@ -137,20 +111,19 @@ def get_args():
                        default=False,
                        action='store_true')
     group.add_argument('-Pp', '--proxy-protocol',
-                       help=('Specify proxy protocol we are testing. ' +
-                             'Default: socks.'),
-                       default='socks',
-                       choices=('http', 'socks', 'all'))
+                       help='Specify proxy protocol we are testing.',
+                       choices=list(ProxyProtocol),
+                       type=ProxyProtocol.type)
     group.add_argument('-Pri', '--proxy-refresh-interval',
                        help=('Refresh proxylist from configured sources '
                              'every X minutes. Default: 180.'),
                        default=180,
-                       type=int)
+                       type=int_minutes)
     group.add_argument('-Psi', '--proxy-scan-interval',
                        help=('Scan proxies from database every X minutes. '
                              'Default: 60.'),
                        default=60,
-                       type=int)
+                       type=int_minutes)
     group.add_argument('-Pic', '--proxy-ignore-country',
                        help=('Ignore proxies from countries in this list. '
                              'Default: ["china"]'),
@@ -162,7 +135,7 @@ def get_args():
                        help=('Output working proxylist every X minutes. '
                              'Default: 60.'),
                        default=60,
-                       type=int)
+                       type=int_minutes)
     group.add_argument('-Ol', '--output-limit',
                        help=('Maximum number of proxies to output. '
                              'Default: 100.'),
@@ -175,23 +148,28 @@ def get_args():
     group.add_argument('-Oh', '--output-http',
                        help=('Output filename for working HTTP proxies. '
                              'To disable: None/False.'),
-                       default='working_http.txt')
+                       default='working_http.txt',
+                       type=string_disable)
     group.add_argument('-Os', '--output-socks',
                        help=('Output filename for working SOCKS proxies. '
                              'To disable: None/False.'),
-                       default='working_socks.txt')
+                       default='working_socks.txt',
+                       type=string_disable)
     group.add_argument('-Okc', '--output-kinancity',
                        help=('Output filename for KinanCity proxylist. '
                              'Default: None (disabled).'),
-                       default=None)
+                       default=None,
+                       type=string_disable)
     group.add_argument('-Opc', '--output-proxychains',
                        help=('Output filename for ProxyChains proxylist. '
                              'Default: None (disabled).'),
-                       default=None)
+                       default=None,
+                       type=string_disable)
     group.add_argument('-Orm', '--output-rocketmap',
                        help=('Output filename for RocketMap proxylist. '
                              'Default: None (disabled).'),
-                       default=None)
+                       default=None,
+                       type=string_disable)
 
     group = parser.add_argument_group('Proxy Tester')
     group.add_argument('-Tr', '--tester-retries',
@@ -221,10 +199,10 @@ def get_args():
                        help=('Print proxy tester statistics every X seconds. '
                              'Default: 60.'),
                        default=60,
-                       type=int)
+                       type=float_seconds)
     group.add_argument('-Tpv', '--tester-pogo-version',
                        help='PoGo API version currently required by Niantic.',
-                       default='0.245.2')
+                       default='0.247.1')
 
     group = parser.add_argument_group('Proxy Scrapper')
     group.add_argument('-Sr', '--scrapper-retries',
@@ -236,11 +214,11 @@ def get_args():
                        help=('Time factor (in seconds) by which the delay '
                              'until next retry will increase. Default: 0.5.'),
                        default=0.5,
-                       type=float)
+                       type=float_seconds)
     group.add_argument('-St', '--scrapper-timeout',
                        help='Connection timeout in seconds. Default: 5.',
                        default=5,
-                       type=float)
+                       type=float_seconds)
     group.add_argument('-Sp', '--scrapper-proxy',
                        help=('Use this proxy for webpage scrapping. '
                              'Format: <proto>://[<user>:<pass>@]<ip>:<port> '
@@ -254,72 +232,38 @@ def get_args():
     return args
 
 
-def check_configuration(self, args):
-    if not args.proxy_file and not args.proxy_scrap:
-        log.error('You must supply a proxylist file or enable scrapping.')
-        sys.exit(1)
+def int_minutes(arg):
+    interval = int(arg)
 
-    if args.proxy_protocol == 'all':
-        args.proxy_protocol = None
-    elif args.proxy_protocol == 'http':
-        args.proxy_protocol = ProxyProtocol.HTTP
-    else:
-        args.proxy_protocol = ProxyProtocol.SOCKS5
+    if interval <= 0:
+        raise ValueError('Negative time interval specified!')
 
-    if not args.proxy_judge:
-        log.error('You must specify a URL for an AZenv proxy judge.')
-        sys.exit(1)
+    return interval * 60
 
-    if args.tester_max_concurrency <= 0:
-        log.error('Proxy tester max concurrency must be greater than zero.')
-        sys.exit(1)
 
-    args.local_ip = None
-    if not args.tester_disable_anonymity:
-        local_ip = utils.get_local_ip(args.proxy_judge)
+def float_minutes(arg):
+    interval = float(arg)
 
-        if not local_ip:
-            log.error('Failed to identify local IP address.')
-            sys.exit(1)
+    if interval <= 0:
+        raise ValueError('Negative time interval specified!')
 
-        log.info('External IP address found: %s', local_ip)
-        args.local_ip = local_ip
+    return interval * 60
 
-    if args.proxy_refresh_interval < 15:
-        log.warning('Checking proxy sources every %d minutes is inefficient.',
-                    args.proxy_refresh_interval)
-        args.proxy_refresh_interval = 15
-        log.warning('Proxy refresh interval overriden to 15 minutes.')
 
-    args.proxy_refresh_interval *= 60
+def int_seconds(arg):
+    interval = int(arg)
 
-    if args.proxy_scan_interval < 5:
-        log.warning('Scanning proxies every %d minutes is inefficient.',
-                    args.proxy_scan_interval)
-        args.proxy_scan_interval = 5
-        log.warning('Proxy scan interval overriden to 5 minutes.')
+    if interval <= 0:
+        raise ValueError('Negative time interval specified!')
 
-    args.proxy_scan_interval *= 60
 
-    if args.output_interval < 15:
-        log.warning('Outputting proxylist every %d minutes is inefficient.',
-                    args.output_interval)
-        args.output_interval = 15
-        log.warning('Proxylist output interval overriden to 15 minutes.')
+def float_seconds(arg):
+    interval = float(arg)
 
-    args.output_interval *= 60
+    if interval <= 0:
+        raise ValueError('Negative time interval specified!')
 
-    disabled_values = ['none', 'false']
-    if args.output_http.lower() in disabled_values:
-        args.output_http = None
-    if args.output_socks.lower() in disabled_values:
-        args.output_socks = None
-    if (args.output_kinancity and
-            args.output_kinancity.lower() in disabled_values):
-        args.output_kinancity = None
-    if (args.output_proxychains and
-            args.output_proxychains.lower() in disabled_values):
-        args.output_proxychains = None
-    if (args.output_rocketmap and
-            args.output_rocketmap.lower() in disabled_values):
-        args.output_rocketmap = None
+
+def string_disable(arg):
+    if arg is None or arg.lower() in ['none', 'false']:
+        return None

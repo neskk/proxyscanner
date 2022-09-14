@@ -16,7 +16,8 @@ from threading import Event, Lock, Thread
 
 from .ip2location import IP2LocationDatabase
 from .models import ProxyStatus, Proxy
-from .utils import export_file, parse_azevn
+from .utils import export_file, parse_azevn, get_local_ip
+from .config import Config
 
 
 log = logging.getLogger(__name__)
@@ -45,8 +46,8 @@ class ProxyTester():
                      'callbackAuthorize&locale=en_US')
     PTC_LOGIN_KEYWORD = '"execution"'
 
-    PTC_SIGNUP_URL = 'https://club.pokemon.com/us/pokemon-trainer-club'
-    PTC_SIGNUP_KEYWORD = 'Pokémon Trainer Club | Pokemon.com'
+    PTC_SIGNUP_URL = 'https://club.pokemon.com/us/pokemon-trainer-club/sign-up/'
+    PTC_SIGNUP_KEYWORD = 'The Official Pokémon Website | Pokemon.com'
 
     STATUS_FORCELIST = [500, 502, 503, 504]
     STATUS_BANLIST = [403, 409]
@@ -63,7 +64,9 @@ class ProxyTester():
     ]
     """
 
-    def __init__(self, args):
+    def __init__(self):
+        args = Config.get_args()
+
         self.debug = args.verbose
         self.download_path = args.download_path
         self.timeout = args.tester_timeout
@@ -76,7 +79,8 @@ class ProxyTester():
         self.ignore_country = args.proxy_ignore_country
 
         self.proxy_judge = args.proxy_judge
-        self.local_ip = args.local_ip
+        if not args.tester_disable_anonymity:
+            self.check_local_ip()
 
         self.ip2location = IP2LocationDatabase(args)
 
@@ -102,6 +106,15 @@ class ProxyTester():
             total=args.tester_retries,
             backoff_factor=args.tester_backoff_factor,
             status_forcelist=self.STATUS_FORCELIST)
+
+    def check_local_ip(self):
+        local_ip = get_local_ip(self.proxy_judge)
+
+        if not local_ip:
+            raise RuntimeError('Failed to identify local IP address!')
+
+        log.info('External IP address found: %s', local_ip)
+        self.local_ip = local_ip
 
     def launch(self):
         # Start proxy manager thread.

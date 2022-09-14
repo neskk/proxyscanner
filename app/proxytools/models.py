@@ -1,13 +1,14 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-import hashlib
 import logging
-import socket
-import struct
 import sys
 
-from peewee import *
+from peewee import (
+    DatabaseProxy, Model, DeferredForeignKey, fn, JOIN,
+    OperationalError, IntegrityError,
+    BigAutoField, DateTimeField, CharField,
+    IntegerField, BigIntegerField, SmallIntegerField, IPField)
 from playhouse.pool import PooledMySQLDatabase
 from playhouse.migrate import migrate, MySQLMigrator
 
@@ -15,63 +16,56 @@ from datetime import datetime, timedelta
 from enum import IntEnum
 from timeit import default_timer as timer
 
-from .utils import ip2int, int2ip, time_func, print_dicts
-
 
 log = logging.getLogger(__name__)
 
+###############################################################################
+# Database initialization
 # https://docs.peewee-orm.com/en/latest/peewee/database.html#dynamically-defining-a-database
 # https://docs.peewee-orm.com/en/latest/peewee/playhouse.html#database-url
+###############################################################################
 db = DatabaseProxy()
 db_schema_version = 1
 db_step = 250
 
-#db = SqliteDatabase('sqlite-debug.db')
+
+###############################################################################
+# Enumerations
+###############################################################################
+class ArgEnum(IntEnum):
+
+    def __str__(self) -> str:
+        return self.name.upper()
+
+    def __repr__(self) -> str:
+        return str(self)
+
+    @classmethod
+    def type(cls, arg):
+        try:
+            return cls[arg]
+        except KeyError:
+            return arg
 
 
-def init_database(db_name, db_host, db_port, db_user, db_pass):
-    """ Create a pooled connection to MySQL database """
-    log.info('Connecting to MySQL database on %s:%i...', db_host, db_port)
-
-    database = PooledMySQLDatabase(
-        db_name,
-        user=db_user,
-        password=db_pass,
-        host=db_host,
-        port=db_port,
-        stale_timeout=60,
-        max_connections=None,
-        charset='utf8mb4')
-
-    # Initialize DatabaseProxy
-    db.initialize(database)
-
-    try:
-        verify_database_schema()
-        verify_table_encoding(db_name)
-    except Exception as e:
-        log.exception('Failed to verify database schema: %s', e)
-        sys.exit(1)
-    return db
-
-
-# Enum Classes
-class ProxyProtocol(IntEnum):
+class ProxyProtocol(ArgEnum):
     HTTP = 0
     SOCKS4 = 1
     SOCKS5 = 2
 
 
-class ProxyStatus(IntEnum):
-    OK = 0
-    UNKNOWN = 1
+class ProxyStatus(ArgEnum):
+    UNKNOWN = 0
+    OK = 1
     TIMEOUT = 2
     ERROR = 3
     BANNED = 4
 
 
-# https://docs.peewee-orm.com/en/latest/peewee/models.html#field-types-table
+###############################################################################
 # Custom field types
+# https://docs.peewee-orm.com/en/latest/peewee/models.html#field-types-table
+###############################################################################
 class Utf8mb4CharField(CharField):
     def __init__(self, max_length=191, *args, **kwargs):
         self.max_length = max_length
@@ -104,8 +98,11 @@ class EnumField(SmallIntegerField):
         return self.choices(value)
 
 
+###############################################################################
+# Database models
 # https://docs.peewee-orm.com/en/latest/peewee/models.html#model-options-and-table-metadata
 # https://docs.peewee-orm.com/en/latest/peewee/models.html#meta-primary-key
+###############################################################################
 class BaseModel(Model):
     class Meta:
         database = db
@@ -123,7 +120,6 @@ class BaseModel(Model):
         return cls.select().order_by(fn.Rand()).limit(limit)
 
 
-
 class ProxyTest(BaseModel):
     id = BigAutoField()
     # Note: we use deferred FK because of circular reference in Proxy
@@ -132,7 +128,6 @@ class ProxyTest(BaseModel):
     status = USmallIntegerField(index=True, default=ProxyStatus.UNKNOWN)
     info = Utf8mb4CharField(null=True)
     created = DateTimeField(index=True, default=datetime.utcnow)
-
 
     @staticmethod
     def max_age(age_secs=3600, exclude_ids=[]):
@@ -160,7 +155,6 @@ class ProxyTest(BaseModel):
                  .where(conditions)
                  .group_by(ProxyTest.proxy))
         return query
-
 
     @staticmethod
     def max_agex(age_secs=3600, exclude_ids=[], statuses=[]):
@@ -206,7 +200,6 @@ class ProxyTest(BaseModel):
                  .group_by(ProxyTest.proxy))
         return query
 
-    
     @staticmethod
     def min_agex(age_secs=3600, exclude_ids=[], limit=1000):
 
@@ -222,12 +215,10 @@ class ProxyTest(BaseModel):
                     .where(conditions)
                     .group_by(ProxyTest.proxy))
 
-
         query = (ProxyTest
                  .select(ProxyTest.proxy, ProxyTest.id)
                  .where(ProxyTest.id.not_in(subquery)))
         return query
-
 
     @staticmethod
     def latest(exclude_ids=[]):
@@ -262,7 +253,6 @@ class ProxyTest(BaseModel):
                  .select(fn.MIN(ProxyTest.id))
                  .where(ProxyTest.proxy == proxy_id))
         return query
-
 
     @staticmethod
     def delete_old(age_days=365):
@@ -444,7 +434,6 @@ class Proxy(BaseModel):
 
         return query
 
-
     @staticmethod
     def get_scan(limit=1000, exclude_ids=[], age_secs=3600, protocol=None):
         result = []
@@ -470,7 +459,6 @@ class Proxy(BaseModel):
             log.exception('Failed to get proxies to scan from database: %s', e)
 
         return query
-
 
     @staticmethod
     def valid(limit=1000, age_secs=3600, exclude_ids=[], protocol=None):
@@ -498,7 +486,7 @@ class Proxy(BaseModel):
         if len(res) > 0:
             proxy_ids, proxytest_ids = zip(*res)
 
-        log.debug(f'ProxyTest.max_age executed in {(timer()-t_start):.4f}s')
+        log.debug(f'ProxyTest.max_age executed in {(timer()-t_start):.3f}s')
         conditions = (Proxy.id.in_(proxy_ids))
 
         #max_age = datetime.utcnow() - timedelta(seconds=age_secs)
@@ -519,7 +507,6 @@ class Proxy(BaseModel):
                  .limit(limit))
 
         return query
-
 
     @staticmethod
     def retest(limit=1000, exclude_ids=[], age_secs=3600, protocol=None):
@@ -545,7 +532,7 @@ class Proxy(BaseModel):
         if len(res) > 0:
             proxy_ids, proxytest_ids = zip(*res)
 
-        log.debug(f'ProxyTest.min_age executed in {(timer()-t_start):.4f}s')
+        log.debug(f'ProxyTest.min_age executed in {(timer()-t_start):.3f}s')
 
         conditions = (Proxy.id.in_(proxy_ids))
 
@@ -556,10 +543,10 @@ class Proxy(BaseModel):
             conditions &= (Proxy.protocol == protocol)
 
         query = (Proxy
-                .select(Proxy)
-                .where(conditions)
-                .order_by(Proxy.created.asc())  # get older first
-                .limit(limit))
+                 .select(Proxy)
+                 .where(conditions)
+                 .order_by(Proxy.created.asc())  # get older first
+                 .limit(limit))
 
         return query
 
@@ -601,6 +588,38 @@ class Proxy(BaseModel):
         log.info('Inserted %d new proxies into the database.', count)
         return count
 
+    @staticmethod
+    def delete_old(age_days=365):
+        """
+        Delete old proxies and respective tests.
+
+        Args:
+            age_days (int, optional): Maximum proxy age. Defaults to 365 days.
+
+        Returns:
+            query: Delete query
+        """
+        max_age = datetime.utcnow() - timedelta(days=age_days)
+        conditions = (ProxyTest.created > max_age)
+
+        query = (ProxyTest
+                 .select(ProxyTest)
+                 .where(conditions))
+        return query
+        """
+        rows = 0
+        try:
+            with db:
+                query = (Proxy
+                         .delete()
+                         .where(Proxy.fail_count >= 5))
+                rows = query.execute()
+        except OperationalError as e:
+            log.exception('Failed to delete failed proxies: %s', e)
+
+        log.info('Deleted %d failed proxies from database.', rows)
+        """
+
 
 class Version(BaseModel):
     """ Database versioning model """
@@ -610,7 +629,40 @@ class Version(BaseModel):
     class Meta:
         primary_key = False
 
+
 MODELS = [Proxy, ProxyTest, Version]
+
+
+###############################################################################
+# Database bootstrap
+###############################################################################
+
+# db = SqliteDatabase('sqlite-debug.db')
+def init_database(db_name, db_host, db_port, db_user, db_pass):
+    """ Create a pooled connection to MySQL database """
+    log.info('Connecting to MySQL database on %s:%i...', db_host, db_port)
+
+    database = PooledMySQLDatabase(
+        db_name,
+        user=db_user,
+        password=db_pass,
+        host=db_host,
+        port=db_port,
+        stale_timeout=60,
+        max_connections=None,
+        charset='utf8mb4')
+
+    # Initialize DatabaseProxy
+    db.initialize(database)
+
+    try:
+        verify_database_schema()
+        verify_table_encoding(db_name)
+    except Exception as e:
+        log.exception('Failed to verify database schema: %s', e)
+        sys.exit(1)
+    return db
+
 
 def create_tables():
     """ Create tables in the database (skips existing) """

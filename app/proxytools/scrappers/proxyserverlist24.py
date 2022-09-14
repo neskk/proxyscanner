@@ -12,8 +12,8 @@ log = logging.getLogger(__name__)
 
 class Proxyserverlist24(ProxyScrapper):
 
-    def __init__(self, args):
-        super(Proxyserverlist24, self).__init__(args, 'proxyserverlist24-top')
+    def __init__(self):
+        super(Proxyserverlist24, self).__init__('proxyserverlist24-top')
         self.base_url = 'http://www.proxyserverlist24.top/'
 
     def scrap(self):

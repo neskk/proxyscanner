@@ -3,6 +3,7 @@
 
 import logging
 import os
+import random
 import requests
 import socket
 import struct
@@ -23,9 +24,9 @@ class LogFilter(logging.Filter):
         return record.levelno < self.level
 
 
-def configure_logging(args, log):
+def configure_logging(log, verbose=True, output_path='logs', output_name='-app'):
     date = time.strftime('%Y%m%d_%H%M')
-    filename = os.path.join(args.log_path, '{}-proxyscanner.log'.format(date))
+    filename = os.path.join(output_path, '{}{}.log'.format(date, output_name))
     filelog = logging.FileHandler(filename)
     formatter = logging.Formatter(
         '%(asctime)s [%(threadName)18s][%(module)20s][%(levelname)8s] '
@@ -33,7 +34,7 @@ def configure_logging(args, log):
     filelog.setFormatter(formatter)
     log.addHandler(filelog)
 
-    if args.verbose:
+    if verbose:
         log.setLevel(logging.DEBUG)
         log.debug('Running in verbose mode (-v).')
     else:
@@ -57,7 +58,6 @@ def configure_logging(args, log):
 
     log.addHandler(stdout_hdlr)
     log.addHandler(stderr_hdlr)
-
 
 
 def load_file(filename):
@@ -143,13 +143,17 @@ def int2ip(addr):
     return socket.inet_ntoa(struct.pack('!I', addr))
 
 
+def random_ip():
+    return int2ip(random.randint(1, 0xffffffff))
+
+
 def time_func(func):
     """ Wrapper function to measure the execution time of a function """
     def wrap_func(*args, **kwargs):
         t1 = timer()
         result = func(*args, **kwargs)
         t2 = timer()
-        print(f'Function {func.__name__!r} executed in {(t2-t1):.4f}s')
+        print(f'Function {func.__name__!r} executed in {(t2-t1):.3f}s')
         return result
     return wrap_func
 

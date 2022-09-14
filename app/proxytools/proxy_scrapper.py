@@ -6,6 +6,7 @@ import requests
 from urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 
+from .config import Config
 from .utils import export_file
 
 log = logging.getLogger(__name__)
@@ -23,7 +24,9 @@ class ProxyScrapper(object):
     }
     STATUS_FORCELIST = [500, 502, 503, 504]
 
-    def __init__(self, args, name):
+    def __init__(self, name):
+        args = Config.get_args()
+
         self.timeout = args.scrapper_timeout
         self.proxy = args.scrapper_proxy
         self.ignore_country = args.proxy_ignore_country

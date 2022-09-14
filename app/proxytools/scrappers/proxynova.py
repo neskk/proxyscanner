@@ -13,8 +13,8 @@ log = logging.getLogger(__name__)
 
 class ProxyNova(ProxyScrapper):
 
-    def __init__(self, args):
-        super(ProxyNova, self).__init__(args, 'proxynova-com')
+    def __init__(self):
+        super(ProxyNova, self).__init__('proxynova-com')
         self.base_url = 'https://www.proxynova.com'
         self.urls = (
             'https://www.proxynova.com/proxy-server-list/elite-proxies/',

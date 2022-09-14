@@ -3,6 +3,7 @@
 
 import logging
 
+from .config import Config
 from .utils import validate_ip
 from .models import ProxyProtocol, Proxy
 
@@ -24,7 +25,10 @@ log = logging.getLogger(__name__)
 
 class ProxyParser(object):
 
-    def __init__(self, args, protocol=None):
+    def __init__(self, protocol=None):
+        self.args = Config.get_args()
+
+        args = self.args
         self.debug = args.verbose
         self.download_path = args.download_path
         self.refresh_interval = args.proxy_refresh_interval
@@ -123,30 +127,30 @@ class ProxyParser(object):
 
 class MixedParser(ProxyParser):
 
-    def __init__(self, args):
-        super(MixedParser, self).__init__(args)
-        if args.proxy_file:
-            self.scrappers.append(FileReader(args))
+    def __init__(self):
+        super(MixedParser, self).__init__()
+        if self.args.proxy_file:
+            self.scrappers.append(FileReader())
 
 
 class HTTPParser(ProxyParser):
 
-    def __init__(self, args):
-        super(HTTPParser, self).__init__(args, ProxyProtocol.HTTP)
-        self.scrappers.append(Freeproxylist(args))
-        self.scrappers.append(Premproxy(args))
-        self.scrappers.append(Proxyserverlist24(args))
-        self.scrappers.append(SpysHTTPS(args))
-        self.scrappers.append(ProxyNova(args))
-        # self.scrappers.append(Idcloak(args))  # OFFLINE
+    def __init__(self):
+        super(HTTPParser, self).__init__(ProxyProtocol.HTTP)
+        self.scrappers.append(Freeproxylist())
+        self.scrappers.append(Premproxy())
+        self.scrappers.append(Proxyserverlist24())
+        self.scrappers.append(SpysHTTPS())
+        self.scrappers.append(ProxyNova())
+        # self.scrappers.append(Idcloak())  # OFFLINE
 
 
 class SOCKSParser(ProxyParser):
 
-    def __init__(self, args):
-        super(SOCKSParser, self).__init__(args, ProxyProtocol.SOCKS5)
-        self.scrappers.append(Sockslist(args))
-        self.scrappers.append(Socksproxy(args))
-        self.scrappers.append(SpysSOCKS(args))
-        self.scrappers.append(Vipsocks24(args))
-        # self.scrappers.append(Socksproxylist24(args))  # Duplicate of VipSocks24
+    def __init__(self):
+        super(SOCKSParser, self).__init__(ProxyProtocol.SOCKS5)
+        self.scrappers.append(Sockslist())
+        self.scrappers.append(Socksproxy())
+        self.scrappers.append(SpysSOCKS())
+        self.scrappers.append(Vipsocks24())
+        # self.scrappers.append(Socksproxylist24())  # Duplicate of VipSocks24

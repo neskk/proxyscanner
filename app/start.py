@@ -2,11 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import logging
-import os
-import sys
-import time
-
-from timeit import default_timer
 
 from proxytools.app import App
 from proxytools.config import Config
@@ -17,7 +12,7 @@ log = logging.getLogger()
 
 if __name__ == '__main__':
     args = Config.get_args()
-    Config.configure_logging(log)
+    configure_logging(log, args.verbose, args.log_path, "-proxyscanner")
 
-    app = App(args)
-    #app.work()
+    app = App()
+    app.start()

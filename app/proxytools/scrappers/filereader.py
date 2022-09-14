@@ -11,9 +11,10 @@ log = logging.getLogger(__name__)
 
 class FileReader(ProxyScrapper):
 
-    def __init__(self, args):
-        super(FileReader, self).__init__(args, 'file-reader')
-        self.proxy_file = args.proxy_file
+    def __init__(self):
+        super(FileReader, self).__init__('file-reader')
+
+        self.proxy_file = self.args.proxy_file
 
     def scrap(self):
         proxylist = load_file(self.proxy_file)

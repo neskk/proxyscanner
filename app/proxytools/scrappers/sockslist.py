@@ -16,8 +16,8 @@ log = logging.getLogger(__name__)
 # Sockslist.net uses javascript to obfuscate proxies port number.
 class Sockslist(ProxyScrapper):
 
-    def __init__(self, args):
-        super(Sockslist, self).__init__(args, 'sockslist-net')
+    def __init__(self):
+        super(Sockslist, self).__init__('sockslist-net')
         self.base_url = 'https://sockslist.net'
         self.urls = (
             'https://sockslist.net/list/proxy-socks-5-list#proxylist',

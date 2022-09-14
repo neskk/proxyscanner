@@ -18,8 +18,8 @@ log = logging.getLogger(__name__)
 # This should only happen if you scrap this site too frequently.
 class Premproxy(ProxyScrapper):
 
-    def __init__(self, args):
-        super(Premproxy, self).__init__(args, 'premproxy-com')
+    def __init__(self):
+        super(Premproxy, self).__init__('premproxy-com')
         self.base_url = 'https://premproxy.com'
 
     def scrap(self):

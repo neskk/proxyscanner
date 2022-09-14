@@ -17,8 +17,8 @@ log = logging.getLogger(__name__)
 
 class Vipsocks24(ProxyScrapper):
 
-    def __init__(self, args):
-        super(Vipsocks24, self).__init__(args, 'vipsocks24-net')
+    def __init__(self):
+        super(Vipsocks24, self).__init__('vipsocks24-net')
         self.base_url = 'http://vipsocks24.net/'
 
     def scrap(self):

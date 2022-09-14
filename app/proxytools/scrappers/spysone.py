@@ -18,8 +18,8 @@ log = logging.getLogger(__name__)
 
 class SpysOne(ProxyScrapper):
 
-    def __init__(self, args, name):
-        super(SpysOne, self).__init__(args, name)
+    def __init__(self, name):
+        super(SpysOne, self).__init__(name)
 
     def scrap(self):
         self.setup_session()
@@ -138,15 +138,15 @@ class SpysOne(ProxyScrapper):
 
 class SpysHTTPS(SpysOne):
 
-    def __init__(self, args):
-        super(SpysHTTPS, self).__init__(args, 'spys-one-https')
+    def __init__(self):
+        super(SpysHTTPS, self).__init__('spys-one-https')
         self.base_url = 'http://spys.one/en/https-ssl-proxy/'
         self.post_data = 'xpp=5&xf1=1&xf4=0&xf5=0'
 
 
 class SpysSOCKS(SpysOne):
 
-    def __init__(self, args):
-        super(SpysSOCKS, self).__init__(args, 'spys-one-socks')
+    def __init__(self):
+        super(SpysSOCKS, self).__init__('spys-one-socks')
         self.base_url = 'http://spys.one/en/socks-proxy-list/'
         self.post_data = 'xpp=5&xf1=0&xf2=0&xf4=0&xf5=0'

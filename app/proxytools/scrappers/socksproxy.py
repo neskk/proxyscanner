@@ -12,8 +12,8 @@ log = logging.getLogger(__name__)
 
 class Socksproxy(ProxyScrapper):
 
-    def __init__(self, args):
-        super(Socksproxy, self).__init__(args, 'socksproxy-net')
+    def __init__(self):
+        super(Socksproxy, self).__init__('socksproxy-net')
         self.base_url = 'https://www.socks-proxy.net/'
 
     def scrap(self):

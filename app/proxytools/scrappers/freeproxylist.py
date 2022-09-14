@@ -12,8 +12,8 @@ log = logging.getLogger(__name__)
 
 class Freeproxylist(ProxyScrapper):
 
-    def __init__(self, args):
-        super(Freeproxylist, self).__init__(args, 'freeproxylist-net')
+    def __init__(self):
+        super(Freeproxylist, self).__init__('freeproxylist-net')
         self.base_url = 'https://free-proxy-list.net'
 
     def scrap(self):

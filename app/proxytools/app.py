@@ -8,93 +8,99 @@ import time
 from timeit import default_timer
 
 from proxytools import utils
+from proxytools.config import Config
 from proxytools.proxy_tester import ProxyTester
 from proxytools.proxy_parser import MixedParser, HTTPParser, SOCKSParser
-from proxytools.models import init_database, Proxy, ProxyTest, ProxyProtocol
+from proxytools.models import init_database, ProxyProtocol, Proxy, ProxyTest
 
 log = logging.getLogger(__name__)
 
 
 class App:
 
-    def __init__(self, args):
-        self.check_configuration(args)
+    def __init__(self):
+        args = Config.get_args()
+
+        init_database(
+            args.db_name,
+            args.db_host,
+            args.db_port,
+            args.db_user,
+            args.db_pass)
+
         self.args = args
-        init_database(args.db_name, args.db_host, args.db_port, args.db_user, args.db_pass)
+        self.tester = ProxyTester()
+        self.parsers = [MixedParser()]
 
-        self.proxy_tester = ProxyTester(args)
-        self.proxy_parsers = [MixedParser(args)]
-
-        protocol = args.proxy_protocol
-        if protocol is None or protocol == ProxyProtocol.HTTP:
-            self.proxy_parsers.append(HTTPParser(args))
-
-        if protocol is None or protocol == ProxyProtocol.SOCKS5:
-            self.proxy_parsers.append(SOCKSParser(args))
-
+    def start(self):
         try:
-            self.work()
+            self.__launch()
+            self.__work()
         except (KeyboardInterrupt, SystemExit):
-            self.output()
+            self.__output()
 
             # Signal the Event to stop the threads
             self.proxy_tester.running.set()
             log.info('Waiting for proxy tester to shutdown...')
-        # except Exception as e:
-        #     log.exception(e)
+        except Exception as e:
+            log.exception(e)
         finally:
-            self.cleanup()
+            self.__cleanup()
             sys.exit()
 
-    def work(self):
-        args = self.args
-        tester = self.proxy_tester
-        parsers = self.proxy_parsers
+    def __launch(self):
+        protocol = self.args.proxy_protocol
+        if protocol is None or protocol == ProxyProtocol.HTTP:
+            self.parsers.append(HTTPParser())
+
+        if protocol is None or protocol == ProxyProtocol.SOCKS5:
+            self.parsers.append(SOCKSParser())
 
         # Validate proxy tester benchmark responses.
-        if tester.validate_responses():
+        if self.tester.validate_responses():
             log.info('Proxy tester response validation was successful.')
             # Launch proxy tester threads.
-            tester.launch()
+            self.tester.launch()
         else:
             log.critical('Proxy tester response validation failed.')
             sys.exit(1)
 
+        # Remove failed proxies from database.
+        # Proxy.clean_failed()
+
         # Fetch and insert new proxies from configured sources.
-        for proxy_parser in parsers:
+        for proxy_parser in self.parsers:
             proxy_parser.load_proxylist()
 
-        # Remove failed proxies from database.
-        Proxy.clean_failed()
-
+    def __work(self):
         refresh_timer = default_timer()
         output_timer = default_timer()
         errors = 0
         while True:
             now = default_timer()
-            if now > refresh_timer + args.proxy_refresh_interval:
+            if now > refresh_timer + self.args.proxy_refresh_interval:
                 refresh_timer = now
                 log.info('Refreshing proxylists configured from sources.')
-                for proxy_parser in parsers:
+                for proxy_parser in self.parsers:
                     proxy_parser.load_proxylist()
 
                 # Remove failed proxies from database.
                 Proxy.clean_failed()
 
                 # Validate proxy tester benchmark responses.
-                if not tester.validate_responses():
+                if not self.tester.validate_responses():
                     log.critical('Proxy tester response validation failed.')
                     errors += 1
                     if errors > 2:
                         sys.exit(1)
 
-            if now > output_timer + args.output_interval:
+            if now > output_timer + self.args.output_interval:
                 output_timer = now
-                self.output()
+                self.__output()
 
             time.sleep(60)
 
-    def output(self):
+    def __output(self):
         args = self.args
         log.info('Outputting working proxylist.')
 
@@ -148,7 +154,7 @@ class App:
 
             self.export(args.output_socks, working_socks, args.output_no_protocol)
 
-    def cleanup(self):
+    def __cleanup(self):
         """ Handle shutdown tasks """
         log.info('Shutting down...')
 
