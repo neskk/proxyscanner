@@ -86,7 +86,7 @@ class ProxyTester():
 
         self.running = Event()
         self.test_queue = Queue()
-        self.test_hashes = []
+        self.test_ids = []
         self.proxy_updates_lock = Lock()
         self.proxy_updates = {}
 
@@ -330,7 +330,7 @@ class ProxyTester():
 
         proxy = Proxy.db_format(proxy)
         with self.proxy_updates_lock:
-            self.test_hashes.remove(proxy['hash'])
+            self.test_ids.remove(proxy['hash'])
             self.proxy_updates[proxy['hash']] = proxy
 
     def __run_tests(self, proxy):
@@ -408,7 +408,7 @@ class ProxyTester():
                 with self.proxy_updates_lock:
                     queue_size = self.test_queue.qsize()
                     log.debug('%d proxy tests running...',
-                              len(self.test_hashes) - queue_size)
+                              len(self.test_ids) - queue_size)
 
                     # Upsert updated proxies into database.
                     updates_count = len(self.proxy_updates)
@@ -432,11 +432,11 @@ class ProxyTester():
                     if refill > 0:
                         refill = min(refill, self.max_concurrency)
                         proxylist = Proxy.get_scan(
-                            refill, self.test_hashes, self.scan_interval)
+                            refill, self.test_ids, self.scan_interval)
                         count = 0
                         for proxy in proxylist:
                             self.test_queue.put(proxy)
-                            self.test_hashes.append(proxy['hash'])
+                            self.test_ids.append(proxy['hash'])
                             count += 1
 
                         log.debug('Enqueued %d proxies for testing.', count)

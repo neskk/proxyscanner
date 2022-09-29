@@ -5,9 +5,9 @@ import logging
 import sys
 
 from peewee import (
-    DatabaseProxy, Model, DeferredForeignKey, fn, JOIN,
+    DatabaseProxy, Model, fn, JOIN,
     OperationalError, IntegrityError,
-    BigAutoField, DateTimeField, CharField,
+    ForeignKeyField, BigAutoField, DateTimeField, CharField,
     IntegerField, BigIntegerField, SmallIntegerField, IPField)
 from playhouse.pool import PooledMySQLDatabase
 from playhouse.migrate import migrate, MySQLMigrator
@@ -56,10 +56,11 @@ class ProxyProtocol(ArgEnum):
 
 class ProxyStatus(ArgEnum):
     UNKNOWN = 0
-    OK = 1
-    TIMEOUT = 2
-    ERROR = 3
-    BANNED = 4
+    TESTING = 1
+    OK = 2
+    TIMEOUT = 3
+    ERROR = 4
+    BANNED = 5
 
 
 ###############################################################################
@@ -102,6 +103,8 @@ class EnumField(SmallIntegerField):
 # Database models
 # https://docs.peewee-orm.com/en/latest/peewee/models.html#model-options-and-table-metadata
 # https://docs.peewee-orm.com/en/latest/peewee/models.html#meta-primary-key
+# https://docs.peewee-orm.com/en/latest/peewee/models.html#field-initialization-arguments
+# Note: field attribute "default" is implemented purely in Python and "choices" are not validated.
 ###############################################################################
 class BaseModel(Model):
     class Meta:
@@ -120,173 +123,6 @@ class BaseModel(Model):
         return cls.select().order_by(fn.Rand()).limit(limit)
 
 
-class ProxyTest(BaseModel):
-    id = BigAutoField()
-    # Note: we use deferred FK because of circular reference in Proxy
-    proxy = DeferredForeignKey('Proxy', backref='tests')
-    latency = UIntegerField(index=True, null=True)
-    status = USmallIntegerField(index=True, default=ProxyStatus.UNKNOWN)
-    info = Utf8mb4CharField(null=True)
-    created = DateTimeField(index=True, default=datetime.utcnow)
-
-    @staticmethod
-    def max_age(age_secs=3600, exclude_ids=[]):
-        """
-        Retrieve proxies with the latest tests.
-
-        0.0051s with 100k proxies and 20M tests
-
-        Args:
-            age_secs (int, optional): Maximum test age. Defaults to 3600 secs.
-            exclude_ids (list, optional): Ignore these proxy IDs. Defaults to [].
-
-        Returns:
-            query: [(proxy_id, proxytest_id), ...]
-        """
-
-        max_age = datetime.utcnow() - timedelta(seconds=age_secs)
-        conditions = (ProxyTest.created > max_age)
-
-        if exclude_ids:
-            conditions &= (ProxyTest.proxy.not_in(exclude_ids))
-
-        query = (ProxyTest
-                 .select(ProxyTest.proxy, fn.MAX(ProxyTest.id))
-                 .where(conditions)
-                 .group_by(ProxyTest.proxy))
-        return query
-
-    @staticmethod
-    def max_agex(age_secs=3600, exclude_ids=[], statuses=[]):
-        max_age = datetime.utcnow() - timedelta(seconds=age_secs)
-        conditions = (ProxyTest.created > max_age)
-
-        if exclude_ids:
-            conditions &= (ProxyTest.proxy.not_in(exclude_ids))
-
-        if statuses:
-            conditions &= (ProxyTest.status.in_(statuses))
-
-        query = (ProxyTest
-                 .select(ProxyTest.proxy, fn.COUNT(ProxyTest.id).alias('count'), fn.SUM(ProxyTest.status).alias('score'))
-                 .where(conditions)
-                 .group_by(ProxyTest.proxy))
-        return query
-
-    @staticmethod
-    def min_age(age_secs=3600, exclude_ids=[]):
-        """
-        Retrieve proxies with a test old enough
-
-        ** very slow **
-
-        Args:
-            age_secs (int, optional): Maximum test age. Defaults to 3600 secs.
-            exclude_ids (list, optional): Ignore these proxy IDs. Defaults to [].
-
-        Returns:
-            query: [(proxy_id, proxytest_id), ...]
-        """
-
-        min_age = datetime.utcnow() - timedelta(seconds=age_secs)
-        conditions = (ProxyTest.created < min_age)
-
-        if exclude_ids:
-            conditions &= (ProxyTest.proxy.not_in(exclude_ids))
-
-        query = (ProxyTest
-                 .select(ProxyTest.proxy, fn.MAX(ProxyTest.id))
-                 .where(conditions)
-                 .group_by(ProxyTest.proxy))
-        return query
-
-    @staticmethod
-    def min_agex(age_secs=3600, exclude_ids=[], limit=1000):
-
-        subquery = ProxyTest.max_age(age_secs, exclude_ids)
-        max_age = datetime.utcnow() - timedelta(seconds=age_secs)
-        conditions = (ProxyTest.created > max_age)
-
-        if exclude_ids:
-            conditions &= (ProxyTest.proxy.not_in(exclude_ids))
-
-        subquery = (ProxyTest
-                    .select(fn.MAX(ProxyTest.id))
-                    .where(conditions)
-                    .group_by(ProxyTest.proxy))
-
-        query = (ProxyTest
-                 .select(ProxyTest.proxy, ProxyTest.id)
-                 .where(ProxyTest.id.not_in(subquery)))
-        return query
-
-    @staticmethod
-    def latest(exclude_ids=[]):
-        """ Retrieve proxies with the latest tests """
-        query = (ProxyTest
-                 .select(ProxyTest.proxy, fn.MAX(ProxyTest.id))
-                 .where(ProxyTest.proxy.not_in(exclude_ids))
-                 .group_by(ProxyTest.proxy))
-        return query
-
-    @staticmethod
-    def oldest(exclude_ids=[]):
-        """ Retrieve proxies oldest tests """
-        query = (ProxyTest
-                 .select(ProxyTest.proxy, fn.MIN(ProxyTest.id))
-                 .where(ProxyTest.proxy.not_in(exclude_ids))
-                 .group_by(ProxyTest.proxy))
-        return query
-
-    @staticmethod
-    def latest_test(proxy_id):
-        """ Retrieve the latest test ID performed on `proxy_id` """
-        query = (ProxyTest
-                 .select(fn.MAX(ProxyTest.id))
-                 .where(ProxyTest.proxy == proxy_id))
-        return query
-
-    @staticmethod
-    def oldest_test(proxy_id):
-        """ Retrieve the oldest test ID performed on `proxy_id` """
-        query = (ProxyTest
-                 .select(fn.MIN(ProxyTest.id))
-                 .where(ProxyTest.proxy == proxy_id))
-        return query
-
-    @staticmethod
-    def delete_old(age_days=365):
-        """
-        Delete old proxy tests.
-
-        Args:
-            age_days (int, optional): Maximum test age. Defaults to 365 days.
-
-        Returns:
-            query: Delete query
-        """
-        max_age = datetime.utcnow() - timedelta(days=age_days)
-        conditions = (ProxyTest.created > max_age)
-
-        query = (ProxyTest
-                 .select(ProxyTest)
-                 .where(conditions))
-        return query
-        """
-        rows = 0
-        try:
-            with db:
-                query = (Proxy
-                         .delete()
-                         .where(Proxy.fail_count >= 5))
-                rows = query.execute()
-        except OperationalError as e:
-            log.exception('Failed to delete failed proxies: %s', e)
-
-        log.info('Deleted %d failed proxies from database.', rows)
-        """
-
-
 class Proxy(BaseModel):
     id = BigAutoField()
     ip = IPField()
@@ -294,6 +130,11 @@ class Proxy(BaseModel):
     protocol = USmallIntegerField(index=True)
     username = Utf8mb4CharField(null=True, max_length=32)
     password = Utf8mb4CharField(null=True, max_length=32)
+    latency = UIntegerField(index=True, null=True)  # miliseconds
+    status = USmallIntegerField(index=True, default=ProxyStatus.UNKNOWN)
+    test_count = UIntegerField(index=True, default=0)
+    fail_count = UIntegerField(index=True, default=0)
+    country_alpha2 = Utf8mb4CharField(index=True, null=True, max_length=2)
     created = DateTimeField(index=True, default=datetime.utcnow)
     modified = DateTimeField(index=True, default=datetime.utcnow)
 
@@ -303,7 +144,11 @@ class Proxy(BaseModel):
             (('ip', 'port'), True),
         )
 
-    def url(self, no_protocol=False):
+    def test_score(self) -> float:
+        """ Success percentage """
+        return 1.0 - self.fail_count / self.test_count
+
+    def url(self, no_protocol=False) -> str:
         """
         Build a URL string from proxy data.
 
@@ -457,6 +302,24 @@ class Proxy(BaseModel):
 
         except OperationalError as e:
             log.exception('Failed to get proxies to scan from database: %s', e)
+
+        return query
+
+    def need_scan(limit=1000, exclude_ids=[], age_secs=3600, protocol=None):
+        min_age = datetime.utcnow() - timedelta(seconds=age_secs)
+        conditions = (
+            Proxy.modified < min_age &
+            Proxy.status != ProxyStatus.TESTING)
+
+        if protocol is not None:
+            conditions &= (Proxy.protocol == protocol)
+
+        query = (Proxy
+                 .select(Proxy)
+                 .where(conditions)
+                 .order_by(Proxy.status.asc(),  # lower status status
+                           Proxy.modified.asc())  # older records first
+                 .limit(limit))
 
         return query
 
@@ -621,6 +484,173 @@ class Proxy(BaseModel):
         """
 
 
+class ProxyTest(BaseModel):
+    id = BigAutoField()
+    # Note: we use deferred FK because of circular reference in Proxy
+    proxy = ForeignKeyField(Proxy, backref='tests', on_delete='CASCADE')
+    latency = UIntegerField(index=True, null=True)
+    status = USmallIntegerField(index=True, default=ProxyStatus.UNKNOWN)
+    info = Utf8mb4CharField(null=True)
+    created = DateTimeField(index=True, default=datetime.utcnow)
+
+    @staticmethod
+    def max_age(age_secs=3600, exclude_ids=[]):
+        """
+        Retrieve proxies with the latest tests.
+
+        0.0051s with 100k proxies and 20M tests
+
+        Args:
+            age_secs (int, optional): Maximum test age. Defaults to 3600 secs.
+            exclude_ids (list, optional): Ignore these proxy IDs. Defaults to [].
+
+        Returns:
+            query: [(proxy_id, proxytest_id), ...]
+        """
+
+        max_age = datetime.utcnow() - timedelta(seconds=age_secs)
+        conditions = (ProxyTest.created > max_age)
+
+        if exclude_ids:
+            conditions &= (ProxyTest.proxy.not_in(exclude_ids))
+
+        query = (ProxyTest
+                 .select(ProxyTest.proxy, fn.MAX(ProxyTest.id))
+                 .where(conditions)
+                 .group_by(ProxyTest.proxy))
+        return query
+
+    @staticmethod
+    def max_agex(age_secs=3600, exclude_ids=[], statuses=[]):
+        max_age = datetime.utcnow() - timedelta(seconds=age_secs)
+        conditions = (ProxyTest.created > max_age)
+
+        if exclude_ids:
+            conditions &= (ProxyTest.proxy.not_in(exclude_ids))
+
+        if statuses:
+            conditions &= (ProxyTest.status.in_(statuses))
+
+        query = (ProxyTest
+                 .select(ProxyTest.proxy, fn.COUNT(ProxyTest.id).alias('count'), fn.SUM(ProxyTest.status).alias('score'))
+                 .where(conditions)
+                 .group_by(ProxyTest.proxy))
+        return query
+
+    @staticmethod
+    def min_age(age_secs=3600, exclude_ids=[]):
+        """
+        Retrieve proxies with a test old enough
+
+        ** very slow **
+
+        Args:
+            age_secs (int, optional): Maximum test age. Defaults to 3600 secs.
+            exclude_ids (list, optional): Ignore these proxy IDs. Defaults to [].
+
+        Returns:
+            query: [(proxy_id, proxytest_id), ...]
+        """
+
+        min_age = datetime.utcnow() - timedelta(seconds=age_secs)
+        conditions = (ProxyTest.created < min_age)
+
+        if exclude_ids:
+            conditions &= (ProxyTest.proxy.not_in(exclude_ids))
+
+        query = (ProxyTest
+                 .select(ProxyTest.proxy, fn.MAX(ProxyTest.id))
+                 .where(conditions)
+                 .group_by(ProxyTest.proxy))
+        return query
+
+    @staticmethod
+    def min_agex(age_secs=3600, exclude_ids=[], limit=1000):
+
+        subquery = ProxyTest.max_age(age_secs, exclude_ids)
+        max_age = datetime.utcnow() - timedelta(seconds=age_secs)
+        conditions = (ProxyTest.created > max_age)
+
+        if exclude_ids:
+            conditions &= (ProxyTest.proxy.not_in(exclude_ids))
+
+        subquery = (ProxyTest
+                    .select(fn.MAX(ProxyTest.id))
+                    .where(conditions)
+                    .group_by(ProxyTest.proxy))
+
+        query = (ProxyTest
+                 .select(ProxyTest.proxy, ProxyTest.id)
+                 .where(ProxyTest.id.not_in(subquery)))
+        return query
+
+    @staticmethod
+    def latest(exclude_ids=[]):
+        """ Retrieve proxies with the latest tests """
+        query = (ProxyTest
+                 .select(ProxyTest.proxy, fn.MAX(ProxyTest.id))
+                 .where(ProxyTest.proxy.not_in(exclude_ids))
+                 .group_by(ProxyTest.proxy))
+        return query
+
+    @staticmethod
+    def oldest(exclude_ids=[]):
+        """ Retrieve proxies oldest tests """
+        query = (ProxyTest
+                 .select(ProxyTest.proxy, fn.MIN(ProxyTest.id))
+                 .where(ProxyTest.proxy.not_in(exclude_ids))
+                 .group_by(ProxyTest.proxy))
+        return query
+
+    @staticmethod
+    def latest_test(proxy_id):
+        """ Retrieve the latest test ID performed on `proxy_id` """
+        query = (ProxyTest
+                 .select(fn.MAX(ProxyTest.id))
+                 .where(ProxyTest.proxy == proxy_id))
+        return query
+
+    @staticmethod
+    def oldest_test(proxy_id):
+        """ Retrieve the oldest test ID performed on `proxy_id` """
+        query = (ProxyTest
+                 .select(fn.MIN(ProxyTest.id))
+                 .where(ProxyTest.proxy == proxy_id))
+        return query
+
+    @staticmethod
+    def delete_old(age_days=365):
+        """
+        Delete old proxy tests.
+
+        Args:
+            age_days (int, optional): Maximum test age. Defaults to 365 days.
+
+        Returns:
+            query: Delete query
+        """
+        max_age = datetime.utcnow() - timedelta(days=age_days)
+        conditions = (ProxyTest.created > max_age)
+
+        query = (ProxyTest
+                 .select(ProxyTest)
+                 .where(conditions))
+        return query
+        """
+        rows = 0
+        try:
+            with db:
+                query = (Proxy
+                         .delete()
+                         .where(Proxy.fail_count >= 5))
+                rows = query.execute()
+        except OperationalError as e:
+            log.exception('Failed to delete failed proxies: %s', e)
+
+        log.info('Deleted %d failed proxies from database.', rows)
+        """
+
+
 class Version(BaseModel):
     """ Database versioning model """
     key = Utf8mb4CharField()
@@ -637,7 +667,9 @@ MODELS = [Proxy, ProxyTest, Version]
 # Database bootstrap
 ###############################################################################
 
-# db = SqliteDatabase('sqlite-debug.db')
+# Note: Sqlite does not enforce foreign key checks by default
+# db = SqliteDatabase('sqlite-debug.db', pragmas={'foreign_keys': 1})
+# db = SqliteDatabase(':memory:', pragmas={'foreign_keys': 1})
 def init_database(db_name, db_host, db_port, db_user, db_pass):
     """ Create a pooled connection to MySQL database """
     log.info('Connecting to MySQL database on %s:%i...', db_host, db_port)
