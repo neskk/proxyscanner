@@ -40,7 +40,9 @@ def configure_logging(log, verbose=True, output_path='logs', output_name='-app')
     else:
         log.setLevel(logging.INFO)
 
-    logging.getLogger('peewee').setLevel(logging.INFO)
+    if not verbose:
+        logging.getLogger('peewee').setLevel(logging.INFO)
+
     logging.getLogger('requests').setLevel(logging.WARNING)
     logging.getLogger('urllib3').setLevel(logging.ERROR)
 

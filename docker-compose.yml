@@ -17,7 +17,7 @@ services:
       - db_data:/var/lib/mysql
       - ./my.cnf:/etc/mysql/conf.d/custom.cnf
 
-  proxyscanner:
+  app:
     image: proxyscanner
     build:
       context: .
