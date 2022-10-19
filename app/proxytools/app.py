@@ -110,7 +110,6 @@ class App:
         if args.output_kinancity:
             working_http = Proxy.get_valid(
                 args.output_limit,
-                args.tester_disable_anonymity,
                 args.proxy_scan_interval,
                 ProxyProtocol.HTTP)
 
