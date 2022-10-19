@@ -9,7 +9,7 @@ from timeit import default_timer
 
 from proxytools import utils
 from proxytools.config import Config
-from proxytools.proxy_tester import ProxyTester
+from proxytools.test_manager import TestManager
 from proxytools.proxy_parser import MixedParser, HTTPParser, SOCKSParser
 from proxytools.models import init_database, ProxyProtocol, Proxy, ProxyTest
 
@@ -29,7 +29,7 @@ class App:
             args.db_pass)
 
         self.args = args
-        self.tester = ProxyTester()
+        self.manager = TestManager()
         self.parsers = [MixedParser()]
 
     def start(self):
@@ -40,7 +40,7 @@ class App:
             self.__output()
 
             # Signal the Event to stop the threads
-            self.proxy_tester.running.set()
+            self.manager.interrupted.set()
             log.info('Waiting for proxy tester to shutdown...')
         except Exception as e:
             log.exception(e)
@@ -57,12 +57,12 @@ class App:
             self.parsers.append(SOCKSParser())
 
         # Validate proxy tester benchmark responses.
-        if self.tester.validate_responses():
-            log.info('Proxy tester response validation was successful.')
+        if self.manager.validate_responses():
+            log.info('Test manager response validation was successful.')
             # Launch proxy tester threads.
-            self.tester.launch()
+            self.manager.start()
         else:
-            log.critical('Proxy tester response validation failed.')
+            log.critical('Test manager response validation failed.')
             sys.exit(1)
 
         # Remove failed proxies from database.
@@ -88,7 +88,7 @@ class App:
                 Proxy.clean_failed()
 
                 # Validate proxy tester benchmark responses.
-                if not self.tester.validate_responses():
+                if not self.manager.validate_responses():
                     log.critical('Proxy tester response validation failed.')
                     errors += 1
                     if errors > 2:
@@ -119,7 +119,6 @@ class App:
         if args.output_proxychains:
             proxylist = Proxy.get_valid(
                 args.output_limit,
-                args.tester_disable_anonymity,
                 args.proxy_scan_interval,
                 args.proxy_protocol)
 
@@ -128,7 +127,6 @@ class App:
         if args.output_rocketmap:
             working_socks = Proxy.get_valid(
                 args.output_limit,
-                args.tester_disable_anonymity,
                 args.proxy_scan_interval,
                 ProxyProtocol.SOCKS5)
 
@@ -138,7 +136,6 @@ class App:
             if not working_http:
                 working_http = Proxy.get_valid(
                     args.output_limit,
-                    args.tester_disable_anonymity,
                     args.proxy_scan_interval,
                     ProxyProtocol.HTTP)
 
@@ -148,7 +145,6 @@ class App:
             if not working_socks:
                 working_socks = Proxy.get_valid(
                     args.output_limit,
-                    args.tester_disable_anonymity,
                     args.proxy_scan_interval,
                     ProxyProtocol.SOCKS5)
 

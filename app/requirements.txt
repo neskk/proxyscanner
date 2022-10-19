@@ -5,4 +5,5 @@ pysocks==1.7.1
 requests==2.26.0
 beautifulsoup4==4.10.0
 ip2location==8.6.4
+pycountry==22.3.5
 #jsbeautifier==1.14.0

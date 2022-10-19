@@ -4,7 +4,10 @@
 import logging
 import math
 import random
+import time
 
+from datetime import datetime, timedelta
+from functools import wraps
 from timeit import default_timer as timer
 
 from proxytools.app import App
@@ -14,6 +17,18 @@ from proxytools.utils import configure_logging, random_ip
 from proxytools.models import Proxy, ProxyTest, ProxyProtocol, ProxyStatus
 
 log = logging.getLogger()
+
+
+def timeit(func):
+    @wraps(func)
+    def timeit_wrapper(*args, **kwargs):
+        start_time = time.perf_counter()
+        result = func(*args, **kwargs)
+        end_time = time.perf_counter()
+        total_time = end_time - start_time
+        log.info(f'Function {func.__name__}{args} {kwargs} Took {total_time:.3f} seconds')
+        return result
+    return timeit_wrapper
 
 
 def print_l(data, limit=100):
@@ -131,8 +146,10 @@ def populate_data(proxy_count=1000, test_count=250000):
         log.info(f'Inserting {test_count} tests took: {elapsed_time:.3f}s')
 
 
+@timeit
 def query_valid():
-    t_start = timer()
+    q = Proxy.valid()
+    log.debug(q.sql())
     l = [m for m in Proxy.valid().dicts()]
     log.debug(f'Proxy.valid executed in {(timer()-t_start):.3f}s')
     print_l(l)
@@ -154,11 +171,6 @@ def query_count_test_status(age_secs=3600, exclude_ids=[], statuses=[]):
     log.debug(f'Proxy.min_agex executed in {(timer()-t_start):.3f}s')
     print_l(l)
 
-"""
-    ptq = ProxyTest.select(ProxyTest).where(ProxyTest.proxy == 1)
-
-"""
-
 
 if __name__ == '__main__':
     args = Config.get_args()
@@ -167,7 +179,7 @@ if __name__ == '__main__':
     app = App()
 
     # 2500000 tests should take about 20min to insert in the database.
-    populate_data(10000, 25000000)
+    #populate_data(10000, 25000000)
 
     """
     proxies = [

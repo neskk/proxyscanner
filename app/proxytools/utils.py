@@ -4,7 +4,6 @@
 import logging
 import os
 import random
-import requests
 import socket
 import struct
 import sys
@@ -24,7 +23,7 @@ class LogFilter(logging.Filter):
         return record.levelno < self.level
 
 
-def configure_logging(log, verbose=True, output_path='logs', output_name='-app'):
+def configure_logging(log, verbosity=0, output_path='logs', output_name='-app'):
     date = time.strftime('%Y%m%d_%H%M')
     filename = os.path.join(output_path, '{}{}.log'.format(date, output_name))
     filelog = logging.FileHandler(filename)
@@ -33,18 +32,6 @@ def configure_logging(log, verbose=True, output_path='logs', output_name='-app')
         '%(message)s')
     filelog.setFormatter(formatter)
     log.addHandler(filelog)
-
-    if verbose:
-        log.setLevel(logging.DEBUG)
-        log.debug('Running in verbose mode (-v).')
-    else:
-        log.setLevel(logging.INFO)
-
-    if not verbose:
-        logging.getLogger('peewee').setLevel(logging.INFO)
-
-    logging.getLogger('requests').setLevel(logging.WARNING)
-    logging.getLogger('urllib3').setLevel(logging.ERROR)
 
     # Redirect messages lower than WARNING to stdout
     stdout_hdlr = logging.StreamHandler(sys.stdout)
@@ -60,6 +47,20 @@ def configure_logging(log, verbose=True, output_path='logs', output_name='-app')
 
     log.addHandler(stdout_hdlr)
     log.addHandler(stderr_hdlr)
+
+    # Set logging verbosity level
+    if not verbosity:
+        log.setLevel(logging.INFO)
+    elif verbosity > 0:
+        log.setLevel(logging.DEBUG)
+        arg_str = 'v' * verbosity
+        log.info(f'Running in verbose mode (-{arg_str}).')
+
+    if verbosity < 2:
+        logging.getLogger('peewee').setLevel(logging.INFO)
+    if verbosity < 3:
+        logging.getLogger('requests').setLevel(logging.WARNING)
+        logging.getLogger('urllib3').setLevel(logging.ERROR)
 
 
 def load_file(filename):
@@ -88,39 +89,6 @@ def export_file(filename, content):
                 file.write(line + '\n')
         else:
             file.write(content)
-
-
-def parse_azevn(response):
-    lines = response.split('\n')
-    result = {
-        'remote_addr': None,
-        'x_unity_version': None,
-        'user_agent': None
-    }
-    try:
-        for line in lines:
-            if 'REMOTE_ADDR' in line:
-                result['remote_addr'] = line.split(' = ')[1]
-            if 'X_UNITY_VERSION' in line:
-                result['x_unity_version'] = line.split(' = ')[1]
-            if 'USER_AGENT' in line:
-                result['user_agent'] = line.split(' = ')[1]
-    except Exception as e:
-        log.warning('Error parsing AZ Environment variables: %s', e)
-
-    return result
-
-
-def get_local_ip(proxy_judge):
-    local_ip = None
-    try:
-        r = requests.get(proxy_judge)
-        test = parse_azevn(r.text)
-        local_ip = test['remote_addr']
-    except Exception as e:
-        log.exception('Failed to connect to proxy judge: %s', e)
-
-    return local_ip
 
 
 def validate_ip(ip):

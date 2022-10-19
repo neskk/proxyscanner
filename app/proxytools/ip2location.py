@@ -23,16 +23,18 @@ class IP2LocationDatabase(object):
         database_file = os.path.join(args.download_path, self.DATABASE_FILE)
 
         if not os.path.isfile(database_file):
-            self.download_database()
+            log.debug('IP2Location database not found, downloading...')
+            self.__download_database()
         else:
             mtime = os.path.getmtime(database_file)
             if time.time() > mtime + (30 * 24 * 3600):
-                log.debug('IP2Location database is at least one month old, downloading newer version.')
-                self.download_database()
+                log.debug('IP2Location database is 1+ month old, downloading update...')
+                self.__download_database()
 
         self.database = IP2Location.IP2Location(database_file)
+        log.debug('IP2Location Lite DB1 initialized.')
 
-    def download_database(self):
+    def __download_database(self):
         download_file = os.path.join(self.download_path, self.DATABASE_ZIP)
         result = False
 
@@ -58,11 +60,20 @@ class IP2LocationDatabase(object):
 
         return result
 
-    def lookup_country(self, ip):
-        country = 'n/a'
+    def lookup_country(self, ip: str) -> str:
+        """
+        Find country name associated with an IP address.
+
+        Args:
+            ip (str): IP address
+
+        Returns:
+            str: ISO 3166-1 alpha-2 code
+        """
+        country = None
         try:
             record = self.database.get_all(ip)
-            country = record.country_long.lower()
+            country = record.country_short.lower()
         except Exception as e:
             log.exception('Unable to lookup country from IP: %s', e)
 

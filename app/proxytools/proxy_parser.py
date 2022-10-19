@@ -10,13 +10,13 @@ from .models import ProxyProtocol, Proxy
 from .scrappers.filereader import FileReader
 from .scrappers.freeproxylist import Freeproxylist
 from .scrappers.premproxy import Premproxy
-from .scrappers.idcloak import Idcloak
+# from .scrappers.idcloak import Idcloak
 from .scrappers.proxyserverlist24 import Proxyserverlist24
-from .scrappers.sockslist import Sockslist
+# from .scrappers.sockslist import Sockslist
 from .scrappers.socksproxy import Socksproxy
-from .scrappers.socksproxylist24 import Socksproxylist24
+# from .scrappers.socksproxylist24 import Socksproxylist24
 from .scrappers.spysone import SpysHTTPS, SpysSOCKS
-from .scrappers.vipsocks24 import Vipsocks24
+# from .scrappers.vipsocks24 import Vipsocks24
 
 from .scrappers.proxynova import ProxyNova
 
@@ -38,7 +38,7 @@ class ProxyParser(object):
         self.scrappers = []
 
     def __parse_proxylist(self, proxylist):
-        result = {}
+        result = []
 
         for proxy in proxylist:
             # Strip spaces from proxy string.
@@ -48,7 +48,6 @@ class ProxyParser(object):
                 continue
 
             parsed = {
-                'hash': None,
                 'ip': None,
                 'port': None,
                 'protocol': self.protocol,
@@ -99,9 +98,8 @@ class ProxyParser(object):
 
             parsed['ip'] = pieces[0]
             parsed['port'] = pieces[1]
-            parsed['hash'] = Proxy.generate_hash(parsed)
 
-            result[parsed['hash']] = parsed
+            result.append(parsed)
 
         log.info('Successfully parsed %d proxies.', len(result))
         return result
@@ -122,7 +120,7 @@ class ProxyParser(object):
         log.info('%s scrapped a total of %d proxies.',
                  type(self).__name__, len(proxylist))
         proxylist = self.__parse_proxylist(proxylist)
-        Proxy.insert_new(list(proxylist.values()))
+        Proxy.insert_bulk(proxylist)
 
 
 class MixedParser(ProxyParser):
@@ -137,6 +135,9 @@ class HTTPParser(ProxyParser):
 
     def __init__(self):
         super(HTTPParser, self).__init__(ProxyProtocol.HTTP)
+        if not self.args.proxy_scrap:
+            return
+
         self.scrappers.append(Freeproxylist())
         self.scrappers.append(Premproxy())
         self.scrappers.append(Proxyserverlist24())
@@ -149,8 +150,11 @@ class SOCKSParser(ProxyParser):
 
     def __init__(self):
         super(SOCKSParser, self).__init__(ProxyProtocol.SOCKS5)
-        self.scrappers.append(Sockslist())
+        if not self.args.proxy_scrap:
+            return
+
+        # self.scrappers.append(Sockslist())
         self.scrappers.append(Socksproxy())
         self.scrappers.append(SpysSOCKS())
-        self.scrappers.append(Vipsocks24())
+        # self.scrappers.append(Vipsocks24())
         # self.scrappers.append(Socksproxylist24())  # Duplicate of VipSocks24
