@@ -20,6 +20,7 @@ class Vipsocks24(ProxyScrapper):
     def __init__(self):
         super(Vipsocks24, self).__init__('vipsocks24-net')
         self.base_url = 'http://vipsocks24.net/'
+        raise RuntimeError('vipsocks24.net is offline.')
 
     def scrap(self):
         self.setup_session()

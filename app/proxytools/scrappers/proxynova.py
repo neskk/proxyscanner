@@ -7,6 +7,8 @@ import re
 from bs4 import BeautifulSoup
 
 from ..proxy_scrapper import ProxyScrapper
+from ..utils import validate_ip
+from ..deobfuscate_js import deobfuscate_js
 
 log = logging.getLogger(__name__)
 
@@ -55,14 +57,25 @@ class ProxyNova(ProxyScrapper):
             if len(columns) != 7:
                 continue
 
+            # several obfuscation methods being used on rotation
             ip_script = columns[0].find('script').string
-            m = re.search(r"document.write\('([\d\.]+)'\s\+\s'([\d\.]+)'\)", ip_script)
+            m = re.search(r"document.write\((.*)\)$", ip_script)
 
             if not m:
                 log.error('Invalid IP format on IP column.')
                 break
 
-            ip = m.group(1).strip() + m.group(2).strip()
+            ip = None
+            try:
+                ip = deobfuscate_js(m.group(1))
+            except Exception:
+                log.exception('Unable to deobfuscate IP from: %s', m.group(1))
+                continue
+
+            if not ip or not validate_ip(ip):
+                log.error('Invalid IP format parsed.')
+                continue
+
             port = columns[1].get_text().strip()
             country = columns[5].find('a')
             city = country.find('span')

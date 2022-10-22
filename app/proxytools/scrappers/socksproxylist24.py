@@ -15,6 +15,7 @@ class Socksproxylist24(ProxyScrapper):
     def __init__(self, args):
         super(Socksproxylist24, self).__init__(args, 'socksproxylist24-top')
         self.base_url = 'http://www.socksproxylist24.top/'
+        raise RuntimeError('socksproxylist24.top is offline.')
 
     def scrap(self):
         self.setup_session()

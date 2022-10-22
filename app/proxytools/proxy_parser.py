@@ -10,12 +10,12 @@ from .models import ProxyProtocol, Proxy
 from .scrappers.filereader import FileReader
 from .scrappers.freeproxylist import Freeproxylist
 from .scrappers.premproxy import Premproxy
-# from .scrappers.idcloak import Idcloak
-from .scrappers.proxyserverlist24 import Proxyserverlist24
-# from .scrappers.sockslist import Sockslist
 from .scrappers.socksproxy import Socksproxy
-# from .scrappers.socksproxylist24 import Socksproxylist24
 from .scrappers.spysone import SpysHTTPS, SpysSOCKS
+# from .scrappers.idcloak import Idcloak
+# from .scrappers.proxyserverlist24 import Proxyserverlist24
+# from .scrappers.sockslist import Sockslist
+# from .scrappers.socksproxylist24 import Socksproxylist24
 # from .scrappers.vipsocks24 import Vipsocks24
 
 from .scrappers.proxynova import ProxyNova
@@ -140,10 +140,8 @@ class HTTPParser(ProxyParser):
 
         self.scrappers.append(Freeproxylist())
         self.scrappers.append(Premproxy())
-        self.scrappers.append(Proxyserverlist24())
-        self.scrappers.append(SpysHTTPS())
+        self.scrappers.append(SpysHTTPS())  # SpyOne
         self.scrappers.append(ProxyNova())
-        # self.scrappers.append(Idcloak())  # OFFLINE
 
 
 class SOCKSParser(ProxyParser):
@@ -153,8 +151,5 @@ class SOCKSParser(ProxyParser):
         if not self.args.proxy_scrap:
             return
 
-        # self.scrappers.append(Sockslist())
         self.scrappers.append(Socksproxy())
-        self.scrappers.append(SpysSOCKS())
-        # self.scrappers.append(Vipsocks24())
-        # self.scrappers.append(Socksproxylist24())  # Duplicate of VipSocks24
+        self.scrappers.append(SpysSOCKS())  # SpyOne

@@ -25,7 +25,6 @@ class Socksproxy(ProxyScrapper):
             log.error('Failed to download webpage: %s', self.base_url)
         else:
             log.info('Parsing proxylist from webpage: %s', self.base_url)
-
             soup = BeautifulSoup(html, 'html.parser')
             proxylist = self.parse_webpage(soup)
 
@@ -34,9 +33,8 @@ class Socksproxy(ProxyScrapper):
 
     def parse_webpage(self, soup):
         proxylist = []
-        counter = 0
 
-        table = soup.find('table', attrs={'id': 'proxylisttable'})
+        table = soup.select_one('div.fpl-list table')
 
         if not table:
             log.error('Unable to find proxylist table.')
@@ -53,22 +51,22 @@ class Socksproxy(ProxyScrapper):
             country = columns[3].get_text().strip().lower()
             version = columns[4].get_text().strip().lower()
             status = columns[5].get_text().strip().lower()
-            counter += 1
-
-            if not self.validate_country(country):
-                continue
-
-            if version != 'socks5':
-                continue
 
             if status == 'transparent':
                 continue
 
-            proxy_url = '{}:{}'.format(ip, port)
+            if not self.validate_country(country):
+                continue
+
+            if version == 'socks4' or version == 'socks5':
+                proxy_url = '{}://{}:{}'.format(version, ip, port)
+            else:
+                proxy_url = '{}:{}'.format(ip, port)
+
             proxylist.append(proxy_url)
 
-        if self.debug and counter == 0:
+        if self.debug and not proxylist == 0:
             self.export_webpage(soup, self.name + '.html')
 
-        log.info('Parsed %d socks5 proxies from webpage (found %d socks4).', len(proxylist), counter)
+        log.info('Parsed %d proxies from webpage.', len(proxylist))
         return proxylist

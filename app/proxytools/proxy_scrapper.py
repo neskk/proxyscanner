@@ -13,14 +13,15 @@ log = logging.getLogger(__name__)
 
 
 class ProxyScrapper(object):
-    REFERER = 'http://google.com'
-    USER_AGENT = ('Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:76.0) '
-                  'Gecko/20100101 Firefox/76.0')
+    REFERER = 'https://google.com'
+    USER_AGENT = ('Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:105.0) '
+                  'Gecko/20100101 Firefox/105.0')
     CLIENT_HEADERS = {
         'User-Agent': USER_AGENT,
         'Accept-Language': 'en-US,en',
         'Accept-Encoding': 'gzip, deflate',
-        'Referer': REFERER
+        'Referer': REFERER,
+        'Upgrade-Insecure-Requests': '1'
     }
     STATUS_FORCELIST = [500, 502, 503, 504]
 
@@ -48,6 +49,8 @@ class ProxyScrapper(object):
         self.session.mount('http://', HTTPAdapter(max_retries=self.retries))
         self.session.mount('https://', HTTPAdapter(max_retries=self.retries))
 
+        self.session.proxies = {'http': self.proxy, 'https': self.proxy}
+
     def request_url(self, url, referer=None, post={}):
         content = None
         try:
@@ -60,14 +63,12 @@ class ProxyScrapper(object):
                 headers['Content-Type'] = 'application/x-www-form-urlencoded'
                 response = self.session.post(
                     url,
-                    proxies={'http': self.proxy, 'https': self.proxy},
                     timeout=self.timeout,
                     headers=headers,
                     data=post)
             else:
                 response = self.session.get(
                     url,
-                    proxies={'http': self.proxy, 'https': self.proxy},
                     timeout=self.timeout,
                     headers=headers)
 

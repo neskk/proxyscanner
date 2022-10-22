@@ -1,7 +1,9 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+# flake8: noqa:F401
 
 import logging
+from pprint import pprint
 import math
 import random
 import time
@@ -31,14 +33,8 @@ def timeit(func):
     return timeit_wrapper
 
 
-def print_l(data, limit=100):
-    for idx, el in enumerate(data):
-        if idx >= limit:
-            break
-        print(el)
-
-
-def add_proxies(amount=3):
+@timeit
+def add_proxies(amount=1):
     data = []
     protocols = list(map(int, ProxyProtocol))
     for i in range(amount):
@@ -53,6 +49,7 @@ def add_proxies(amount=3):
     return q
 
 
+@timeit
 def add_proxytests(proxy_id, amount=3, only_valid=False):
     data = []
 
@@ -152,24 +149,24 @@ def query_valid():
     log.debug(q.sql())
     l = [m for m in Proxy.valid().dicts()]
     log.debug(f'Proxy.valid executed in {(timer()-t_start):.3f}s')
-    print_l(l)
+    pprint(l)
 
 
 def query_count_test_status(age_secs=3600, exclude_ids=[], statuses=[]):
     t_start = timer()
     l = [m for m in ProxyTest.max_age(age_secs, exclude_ids).dicts()]
     log.debug(f'Proxy.max_age executed in {(timer()-t_start):.3f}s')
-    print_l(l)
+    pprint(l)
 
     t_start = timer()
     l = [m for m in ProxyTest.max_agex(age_secs*24, exclude_ids, statuses).dicts()]
     log.debug(f'Proxy.max_agex executed in {(timer()-t_start):.3f}s')
-    print_l(l)
+    pprint(l)
 
     t_start = timer()
     l = [m for m in ProxyTest.min_agex(age_secs, exclude_ids).limit(100).dicts()]
     log.debug(f'Proxy.min_agex executed in {(timer()-t_start):.3f}s')
-    print_l(l)
+    pprint(l)
 
 
 if __name__ == '__main__':
@@ -179,7 +176,8 @@ if __name__ == '__main__':
     app = App()
 
     # 2500000 tests should take about 20min to insert in the database.
-    #populate_data(10000, 25000000)
+    # populate_data(10000, 2500000)
+
 
     """
     proxies = [

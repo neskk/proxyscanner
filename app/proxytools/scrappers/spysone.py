@@ -26,7 +26,16 @@ class SpysOne(ProxyScrapper):
         proxylist = []
 
         url = self.base_url
-        html = self.request_url(url, url, post=self.post_data)
+
+        html = self.request_url(url, url)
+        if not html:
+            return proxylist
+        param = self.parse_secret(html)
+        log.debug('Found secret "xx0" parameter: %s', param)
+
+        post_data = f'xx0={param}&{self.post_data}'
+        log.debug('POST data being sent: %s', post_data)
+        html = self.request_url(url, url, post=post_data)
         if html is None:
             log.error('Failed to download webpage: %s', url)
         else:
@@ -36,6 +45,19 @@ class SpysOne(ProxyScrapper):
 
         self.session.close()
         return proxylist
+
+    def parse_secret(self, html):
+        soup = BeautifulSoup(html, 'html.parser')
+        secret = soup.find('input', attrs={'type': 'hidden', 'name': 'xx0'})
+        if not secret:
+            log.error('Unable to find secret "xx0" parameter.')
+
+            if self.debug:
+                self.export_webpage(soup, self.name + '.html')
+
+            return None
+
+        return secret.get('value')
 
     def parse_webpage(self, html):
         proxylist = []
@@ -113,8 +135,9 @@ class SpysOne(ProxyScrapper):
             numbers = [decode_crazyxor(encoding, m) for m in matches]
             port = ''.join(numbers)
 
-            anonymous = country = columns[2].get_text()
-            if anonymous != 'HIA':
+            anonymous = columns[2].get_text()
+            if anonymous != 'ANM' and anonymous != 'HIA':
+                log.debug('Skipped non-anonymous proxy.')
                 continue
 
             country = columns[3].get_text().lower()
@@ -140,7 +163,7 @@ class SpysHTTPS(SpysOne):
 
     def __init__(self):
         super(SpysHTTPS, self).__init__('spys-one-https')
-        self.base_url = 'http://spys.one/en/https-ssl-proxy/'
+        self.base_url = 'https://spys.one/en/https-ssl-proxy/'
         self.post_data = 'xpp=5&xf1=1&xf4=0&xf5=0'
 
 
@@ -148,5 +171,5 @@ class SpysSOCKS(SpysOne):
 
     def __init__(self):
         super(SpysSOCKS, self).__init__('spys-one-socks')
-        self.base_url = 'http://spys.one/en/socks-proxy-list/'
+        self.base_url = 'https://spys.one/en/socks-proxy-list/'
         self.post_data = 'xpp=5&xf1=0&xf2=0&xf4=0&xf5=0'

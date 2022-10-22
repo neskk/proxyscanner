@@ -19,6 +19,7 @@ class Idcloak(ProxyScrapper):
     def __init__(self):
         super(Idcloak, self).__init__('idcloak-com')
         self.base_url = 'http://www.idcloak.com/proxylist/proxy-list.html'
+        raise RuntimeError('IdClock.com is offline.')
 
     def scrap(self):
         self.setup_session()

@@ -54,12 +54,22 @@ We're not responsible for these proxies and we're not responsible for what users
 - ~~jsbeautifier==1.11.0~~ We're using a modified version of [packer.py](https://github.com/beautify-web/js-beautify/blob/master/python/jsbeautifier/unpackers/packer.py)
 
 ## TODO
-- Fix socksproxy scrapper
-- Instead of dict handling models, use model objects and update proxies "real-time" on the database.
-- Add PWD of start.py to all paths
-- Change structure of proxy tests: each one is now a table with its properties and a fk proxy hash.
-- Proxy test: id, proxy_fk, status, success, fail, latency
+
+- Cleanup queries - proxies stuck on testing status + old tests + old and bad proxies.
+- Add PWD of start.py to all paths.
 - Add IP2Proxy database and check these IPs for valuable proxies. Also check if other proxies are present or not - indicador.
+- Database connection limit: see if we can effectively reuse connections instead of having one per thread
+- Consider ways to allocate proxies in manager to reduce stress on database.
+- User Agent generator:
+    - Grab data from: https://www.whatismybrowser.com/guides/the-latest-user-agent
+    - (firefox -> windows)
+    - (chrome -> windows / android)
+    - (safari -> ios / macos)
+- Refactor AZenv test common functions to ProxyTester.
+- Scrapper database model to hold stats and general activity.
+- Resolve hostname and IP block data.
+- Separate concerns: testing, scrapping and interface/UI.
+- Proxy discovery: when a tester thread is idle we can check variations of known proxies (e.g. IP range, port range).
 
 ## Usage
 

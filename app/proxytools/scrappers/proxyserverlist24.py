@@ -15,6 +15,7 @@ class Proxyserverlist24(ProxyScrapper):
     def __init__(self):
         super(Proxyserverlist24, self).__init__('proxyserverlist24-top')
         self.base_url = 'http://www.proxyserverlist24.top/'
+        raise RuntimeError('proxyserverlist24.top is offline.')
 
     def scrap(self):
         self.setup_session()
