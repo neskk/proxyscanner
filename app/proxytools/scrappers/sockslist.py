@@ -24,6 +24,7 @@ class Sockslist(ProxyScrapper):
             'https://sockslist.net/list/proxy-socks-5-list/2#proxylist',
             'https://sockslist.net/list/proxy-socks-5-list/3#proxylist'
         )
+        raise RuntimeError('SocksList.net is offline.')
 
     def scrap(self):
         self.setup_session()

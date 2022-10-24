@@ -10,7 +10,7 @@ from timeit import default_timer
 from proxytools import utils
 from proxytools.config import Config
 from proxytools.test_manager import TestManager
-from proxytools.proxy_parser import MixedParser, HTTPParser, SOCKSParser
+from proxytools.proxy_parser import MixedParser, HTTPParser, SOCKS4Parser, SOCKS5Parser
 from proxytools.models import init_database, ProxyProtocol, Proxy, ProxyTest
 
 log = logging.getLogger(__name__)
@@ -53,8 +53,11 @@ class App:
         if protocol is None or protocol == ProxyProtocol.HTTP:
             self.parsers.append(HTTPParser())
 
+        if protocol is None or protocol == ProxyProtocol.SOCK45:
+            self.parsers.append(SOCKS4Parser())
+
         if protocol is None or protocol == ProxyProtocol.SOCKS5:
-            self.parsers.append(SOCKSParser())
+            self.parsers.append(SOCKS5Parser())
 
         # Validate proxy tester benchmark responses.
         if self.manager.validate_responses():

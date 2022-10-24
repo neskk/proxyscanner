@@ -12,6 +12,7 @@ from .scrappers.freeproxylist import Freeproxylist
 from .scrappers.premproxy import Premproxy
 from .scrappers.socksproxy import Socksproxy
 from .scrappers.spysone import SpysHTTPS, SpysSOCKS
+from .scrappers.openproxy import OpenProxyHTTP, OpenProxySOCKS4, OpenProxySOCKS5
 # from .scrappers.idcloak import Idcloak
 # from .scrappers.proxyserverlist24 import Proxyserverlist24
 # from .scrappers.sockslist import Sockslist
@@ -142,14 +143,26 @@ class HTTPParser(ProxyParser):
         self.scrappers.append(Premproxy())
         self.scrappers.append(SpysHTTPS())  # SpyOne
         self.scrappers.append(ProxyNova())
+        self.scrappers.append(OpenProxyHTTP())
 
 
-class SOCKSParser(ProxyParser):
+class SOCKS4Parser(ProxyParser):
 
     def __init__(self):
-        super(SOCKSParser, self).__init__(ProxyProtocol.SOCKS5)
+        super(SOCKS4Parser, self).__init__(ProxyProtocol.SOCKS4)
+        if not self.args.proxy_scrap:
+            return
+
+        self.scrappers.append(OpenProxySOCKS4())
+
+
+class SOCKS5Parser(ProxyParser):
+
+    def __init__(self):
+        super(SOCKS5Parser, self).__init__(ProxyProtocol.SOCKS5)
         if not self.args.proxy_scrap:
             return
 
         self.scrappers.append(Socksproxy())
         self.scrappers.append(SpysSOCKS())  # SpyOne
+        self.scrappers.append(OpenProxySOCKS5())
