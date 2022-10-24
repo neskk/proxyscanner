@@ -98,6 +98,8 @@ class EnumAction(configargparse.Action):
 # ConfigArgParse definitions for current application.
 # The following code should have minimal dependencies.
 # https://docs.python.org/3/library/argparse.html
+# Note: If the 'type' keyword is used with the 'default' keyword,
+# the type converter is only applied if the default is a string.
 ###############################################################################
 
 def get_args():

@@ -72,14 +72,15 @@ class AZenv(ProxyTester):
 
                 if row_count != 1:
                     log.warning('Failed to acquire a proxy for testing.')
-                    time.sleep(random.random())
+                    time.sleep(random.uniform(0.2, 0.4))
                     continue
             except MaxConnectionsExceeded:
                 log.warning('Failed to acquire a database connection.')
-                time.sleep(10)
+                time.sleep(random.uniform(0.2, 0.4))
                 continue
 
             # Execute and parse proxy test
+            proxy.database().close()
             proxy_test = self.__test(proxy)
 
             # Update and release proxy
@@ -93,7 +94,7 @@ class AZenv(ProxyTester):
                 proxy.country = country
 
             proxy.save()
-            Proxy.database().close()
+            proxy.database().close()
 
             # Update manager stats
             log.debug(f'{proxy_test.info}: {proxy.url()} ({proxy.latency}ms - {proxy.country})')

@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import logging
+import random
 import requests
 import time
 
@@ -107,6 +108,7 @@ class TestManager():
             tester_threads.append(tester)
 
             tester.start()
+            time.sleep(0.1)
 
     def __test_manager(self):
         """

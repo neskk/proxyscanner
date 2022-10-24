@@ -15,8 +15,10 @@ Scrap proxy lists from the web and test their connectivity.
 
 ## Useful developer resources
 
+- [ArgParse](https://docs.python.org/3/library/argparse.html)
 - [ConfigArgParse](https://github.com/bw2/ConfigArgParse)
 - [Peewee ORM](http://docs.peewee-orm.com/en/latest/)
+- [Peewee ORM: Multi-Threaded Applications](http://docs.peewee-orm.com/en/latest/peewee/database.html#multi-threaded-applications)
 - [Querying the top N objects per group with Peewee ORM](https://charlesleifer.com/blog/querying-the-top-n-objects-per-group-with-peewee-orm/)
 - [MySQL JOIN the most recent row only?](https://stackoverflow.com/a/35965649/1546848)
 - [Python Requests](https://requests.readthedocs.io/en/master/)
@@ -58,8 +60,6 @@ We're not responsible for these proxies and we're not responsible for what users
 - Cleanup queries - proxies stuck on testing status + old tests + old and bad proxies.
 - Add PWD of start.py to all paths.
 - Add IP2Proxy database and check these IPs for valuable proxies. Also check if other proxies are present or not - indicador.
-- Database connection limit: see if we can effectively reuse connections instead of having one per thread
-- Consider ways to allocate proxies in manager to reduce stress on database.
 - User Agent generator:
     - Grab data from: https://www.whatismybrowser.com/guides/the-latest-user-agent
     - (firefox -> windows)
@@ -67,9 +67,12 @@ We're not responsible for these proxies and we're not responsible for what users
     - (safari -> ios / macos)
 - Refactor AZenv test common functions to ProxyTester.
 - Scrapper database model to hold stats and general activity.
+- Add flask webserver for web interface/API development.
+- Add support for web scrapping with selenium + webdriver.
 - Resolve hostname and IP block data.
 - Separate concerns: testing, scrapping and interface/UI.
 - Proxy discovery: when a tester thread is idle we can check variations of known proxies (e.g. IP range, port range).
+- Consider ways to allocate proxies in manager to reduce stress on database.
 
 ## Usage
 
