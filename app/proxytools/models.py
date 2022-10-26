@@ -208,22 +208,23 @@ class Proxy(BaseModel):
 
         return query
 
-    def get_for_scan(age_secs=3600, protocol=None):
+    def get_for_scan(age_secs=3600, protocols=[]):
         min_age = datetime.utcnow() - timedelta(seconds=age_secs)
         conditions = (
             ((Proxy.status == ProxyStatus.UNKNOWN) | (
                 (Proxy.modified < min_age) &
                 (Proxy.status != ProxyStatus.TESTING))))
 
-        if protocol is not None:
-            conditions &= (Proxy.protocol == protocol)
+        if protocols:
+            conditions &= (Proxy.protocol << protocols)
 
+        # Previous sorting:
+        # lower status first and older records first
+        # Proxy.status.asc(), Proxy.modified.asc()
         query = (Proxy
                  .select(Proxy)
                  .where(conditions)
-                 .order_by(fn.Rand()))  # random sort to help row locking
-                 # .order_by(Proxy.status.asc(),  # lower status status
-                 #           Proxy.modified.asc()))  # older records first
+                 .order_by(fn.Rand()))  # random sort to mitigate row locking
 
         return query.first()
 

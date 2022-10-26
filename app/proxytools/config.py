@@ -129,7 +129,7 @@ def get_args():
                         help='URL for AZenv script used to test proxies.',
                         default='http://pascal.hoez.free.fr/azenv.php')
     parser.add_argument('-ua', '--user-agent',
-                        help='User-Agent browser used. Default: random',
+                        help='Browser User-Agent used. Default: random',
                         choices=['random', 'chrome', 'firefox', 'safari'],
                         default='random')
 
