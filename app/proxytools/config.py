@@ -128,6 +128,10 @@ def get_args():
     parser.add_argument('-pj', '--proxy-judge',
                         help='URL for AZenv script used to test proxies.',
                         default='http://pascal.hoez.free.fr/azenv.php')
+    parser.add_argument('-ua', '--user-agent',
+                        help='User-Agent browser used. Default: random',
+                        choices=['random', 'chrome', 'firefox', 'safari'],
+                        default='random')
 
     group = parser.add_argument_group('Database')
     group.add_argument('--db-name',
