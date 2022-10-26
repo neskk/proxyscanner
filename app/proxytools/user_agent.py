@@ -5,6 +5,8 @@ class UserAgent:
     """
     Generate User-Agent strings.
     Format: <product> / <product-version> <comment>
+
+    https://www.whatismybrowser.com/guides/the-latest-user-agent
     """
     PLATFORMS = ['windows', 'macos', 'linux']
 
@@ -26,16 +28,18 @@ class UserAgent:
 
     CHROME = [
         '(%s) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36',
-        '(%s) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36'
+        '(%s) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36',
     ]
 
     FIREFOX = [
         '(%s; rv:106.0) Gecko/20100101 Firefox/106.0',
         '(%s; rv:105.0) Gecko/20100101 Firefox/105.0',
+        '(%s; rv:104.0) Gecko/20100101 Firefox/104.0',
     ]
 
     SAFARI = [
         '(%s) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Safari/605.1.15',
+        '(%s) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.6.1 Safari/605.1.15',
         '(%s) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.5 Safari/605.1.15',
     ]
 

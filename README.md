@@ -58,14 +58,7 @@ We're not responsible for these proxies and we're not responsible for what users
 ## TODO
 
 - Cleanup queries - proxies stuck on testing status + old tests + old and bad proxies.
-- Add PWD of start.py to all paths.
-- Add IP2Proxy database and check these IPs for valuable proxies. Also check if other proxies are present or not - indicador.
 - Consider incremental sleep when testers are idle / reducing re-test cooldown period.
-- User Agent generator:
-    - Grab data from: https://www.whatismybrowser.com/guides/the-latest-user-agent
-    - (firefox -> windows)
-    - (chrome -> windows / android)
-    - (safari -> ios / macos)
 - Scrapper database model to hold stats and general activity.
 - Add flask webserver for web interface/API development.
 - Add support for web scrapping with selenium + webdriver.

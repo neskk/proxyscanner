@@ -10,6 +10,9 @@ import sys
 
 from .models import ProxyProtocol
 
+CWD = os.path.dirname(os.path.realpath(__file__))
+APP_PATH = os.path.realpath(os.path.join(CWD, "../"))
+
 
 class Config:
     """ Singleton class that parses and holds all the configuration arguments """
@@ -121,10 +124,12 @@ def get_args():
                         default=0)
     parser.add_argument('--log-path',
                         help='Directory where log files are saved.',
-                        default='logs')
+                        default='logs',
+                        type=str_path)
     parser.add_argument('--download-path',
                         help='Directory where download files are saved.',
-                        default='downloads')
+                        default='downloads',
+                        type=str_path)
     parser.add_argument('-pj', '--proxy-judge',
                         help='URL for AZenv script used to test proxies.',
                         default='http://pascal.hoez.free.fr/azenv.php')
@@ -322,6 +327,21 @@ def float_seconds(arg: float):
         raise ValueError('Negative time interval specified!')
 
     return interval
+
+
+def str_path(arg: str):
+    if arg is None:
+        raise ValueError('Empty path specified!')
+
+    if os.path.isabs(arg):
+        path = arg
+    else:
+        path = os.path.abspath(f'{APP_PATH}/{arg}')
+
+    # Create directory if path not found
+    if not os.path.exists(path):
+        os.mkdir(path)
+    return path
 
 
 def str_disable(arg: str):
