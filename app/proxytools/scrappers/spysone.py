@@ -105,7 +105,7 @@ class SpysOne(ProxyScrapper):
             #     <font class="spy14">
             #         183.88.16.161
             #         <script type="text/javascript">
-            #         document.write("<font class=spy2>:<\/font>"+(FourFourEightNine^Two3Eight)+(ThreeSixFourTwo^NineEightFour)+(FourFourEightNine^Two3Eight)+(ThreeSixFourTwo^NineEightFour))
+            #         document.write("<font class=spy2>:<\/font>"+(x4w3y5^x4o5)+(m3n4d4^a1c3)+(i9a1c3^g7r8)+(i9a1c3^g7r8)+(k1g7w3^p6s9))
             #         </script>
             #     </font>
             #   </td>
@@ -125,13 +125,16 @@ class SpysOne(ProxyScrapper):
 
             # Remove script tag from contents.
             script = script.extract().string
+            if not script:
+                continue
+
             ip = info.get_text()
 
             if not validate_ip(ip):
                 log.warning('Invalid IP found: %s', ip)
                 continue
 
-            matches = re.findall('\(([\w\^]+)\)', script)
+            matches = re.findall(r'\(([\w\d\^]+)\)', script)
             numbers = [decode_crazyxor(encoding, m) for m in matches]
             port = ''.join(numbers)
 
