@@ -58,9 +58,11 @@ We're not responsible for these proxies and we're not responsible for what users
 ## TODO
 
 - Cleanup queries - proxies stuck on testing status + old tests + old and bad proxies.
+- Add flask webserver for web interface/API development.
+    - **This should replace file output.**
+    - Consider importing files through web interface as well.
 - Consider incremental sleep when testers are idle / reducing re-test cooldown period.
 - Scrapper database model to hold stats and general activity.
-- Add flask webserver for web interface/API development.
 - Add support for web scrapping with selenium + webdriver.
 - Resolve hostname and IP block data.
 - Separate concerns: testing, scrapping and interface/UI.
@@ -69,9 +71,9 @@ We're not responsible for these proxies and we're not responsible for what users
 ## Usage
 
 ```
-usage: start.py [-h] [-cf CONFIG] [-v] [--log-path LOG_PATH] [--download-path DOWNLOAD_PATH] [-pj PROXY_JUDGE] --db-name DB_NAME --db-user DB_USER --db-pass DB_PASS [--db-host DB_HOST] [--db-port DB_PORT] [-Pf PROXY_FILE] [-Ps]
-                [-Pp {HTTP,SOCKS4,SOCKS5}] [-Pri PROXY_REFRESH_INTERVAL] [-Psi PROXY_SCAN_INTERVAL] [-Pic [PROXY_IGNORE_COUNTRY ...]] [-Oi OUTPUT_INTERVAL] [-Ol OUTPUT_LIMIT] [-Onp] [-Oh OUTPUT_HTTP] [-Os OUTPUT_SOCKS] [-Okc OUTPUT_KINANCITY]   
-                [-Opc OUTPUT_PROXYCHAINS] [-Orm OUTPUT_ROCKETMAP] [-Mni MANAGER_NOTICE_INTERVAL] [-Mt MANAGER_TESTERS] [-Tr TESTER_RETRIES] [-Tbf TESTER_BACKOFF_FACTOR] [-Tt TESTER_TIMEOUT] [-Tda] [-Tpv TESTER_POGO_VERSION]
+usage: start.py [-h] [-cf CONFIG] [-v] [--log-path LOG_PATH] [--download-path DOWNLOAD_PATH] [--debug-path DEBUG_PATH] [-pj PROXY_JUDGE] [-ua {random,chrome,firefox,safari}] --db-name DB_NAME --db-user DB_USER --db-pass DB_PASS [--db-host DB_HOST]
+                [--db-port DB_PORT] [-Pf PROXY_FILE] [-Ps] [-Pp {HTTP,SOCKS4,SOCKS5}] [-Pri PROXY_REFRESH_INTERVAL] [-Psi PROXY_SCAN_INTERVAL] [-Pic [PROXY_IGNORE_COUNTRY ...]] [-Oi OUTPUT_INTERVAL] [-Ol OUTPUT_LIMIT] [-Onp] [-Oh OUTPUT_HTTP] [-Os OUTPUT_SOCKS]     
+                [-Okc OUTPUT_KINANCITY] [-Opc OUTPUT_PROXYCHAINS] [-Orm OUTPUT_ROCKETMAP] [-Mni MANAGER_NOTICE_INTERVAL] [-Mt MANAGER_TESTERS] [-Tr TESTER_RETRIES] [-Tbf TESTER_BACKOFF_FACTOR] [-Tt TESTER_TIMEOUT] [-Tda] [-Tpv TESTER_POGO_VERSION]
                 [-Sr SCRAPPER_RETRIES] [-Sbf SCRAPPER_BACKOFF_FACTOR] [-St SCRAPPER_TIMEOUT] [-Sp SCRAPPER_PROXY]
 
 optional arguments:
@@ -81,9 +83,13 @@ optional arguments:
   -v, --verbose         Control verbosity level, e.g. -v or -vv.
   --log-path LOG_PATH   Directory where log files are saved.
   --download-path DOWNLOAD_PATH
-                        Directory where download files are saved.
+                        Directory where downloaded files are saved.
+  --debug-path DEBUG_PATH
+                        Directory where debug files are saved.
   -pj PROXY_JUDGE, --proxy-judge PROXY_JUDGE
                         URL for AZenv script used to test proxies.
+  -ua {random,chrome,firefox,safari}, --user-agent {random,chrome,firefox,safari}
+                        Browser User-Agent used. Default: random
 
 Database:
   --db-name DB_NAME     Name of the database to be used. [env var: MYSQL_DATABASE]
