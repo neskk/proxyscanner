@@ -34,17 +34,29 @@ class ProxyTester(ABC, Thread):
         'Accept-Encoding': 'br, gzip, deflate'
     }
 
-    def __init__(self, manager, id):
+    def __init__(self, manager, id: int):
+        """
+        Abstract class for a proxy tester thread.
+        Defines base HTTP headers that can be customized for tests.
+
+        Args:
+            manager (TestManager): thread executor and task manager
+            id (int): thread ID
+        """
         super().__init__(name=f'proxy-tester-{id:03d}')
-        self.id = id
         self.manager = manager
+        self.id = id
         self.args = Config.get_args()
         self.user_agent = UserAgent.generate(self.args.user_agent)
         self.headers = self.BASE_HEADERS
         self.headers['User-Agent'] = self.user_agent
-        self.protocols = []
 
     def run(self):
+        """
+        Continuous loop to get and test a proxy from database.
+        The proxy is locked for testing using its status.
+        Test results are persited and proxy data updated.
+        """
         log.debug(f'{self.name} started.')
         while True:
             # Check if work is interrupted
@@ -54,7 +66,7 @@ class ProxyTester(ABC, Thread):
             try:
                 with Proxy.database().atomic():
                     # Grab and lock proxy
-                    proxy = Proxy.get_for_scan(protocols=self.protocols)
+                    proxy = self.get_proxy()
 
                     if proxy is None:
                         log.debug('No proxy to test... Re-checking in 10sec.')
@@ -110,5 +122,24 @@ class ProxyTester(ABC, Thread):
             self.manager.mark_success()
 
     @abstractmethod
+    def get_proxy(self) -> Proxy:
+        """
+        Fetch a single Proxy from the database for testing.
+
+        Returns:
+            Proxy: selected for testing
+        """
+        pass
+
+    @abstractmethod
     def test(self, proxy: Proxy) -> ProxyTest:
+        """
+        Perform tests with proxy and return parsed results.
+
+        Args:
+            proxy (Proxy): proxy being tested
+
+        Returns:
+            ProxyTest: test results
+        """
         pass

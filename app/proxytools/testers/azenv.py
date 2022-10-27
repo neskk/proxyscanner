@@ -24,10 +24,10 @@ class AZenv(ProxyTester):
         super().__init__(manager, id)
 
         self.local_ip = self.manager.local_ip
+        self.protocols = [ProxyProtocol.HTTP, ProxyProtocol.SOCKS5]
 
         # Customize headers for test
         self.headers['Host'] = urlparse(self.args.proxy_judge).hostname
-        self.protocols = [ProxyProtocol.HTTP, ProxyProtocol.SOCKS5]
 
         # https://urllib3.readthedocs.io/en/stable/reference/urllib3.util.html
         self.urlib3_retry = urllib3.Retry(
@@ -45,9 +45,7 @@ class AZenv(ProxyTester):
 
         return session
 
-    def __request(self, proxy: Proxy) -> Response:
-        proxy_url = proxy.url()
-
+    def __request(self, proxy_url: str) -> Response:
         response = self.__session(proxy_url).get(
             self.args.proxy_judge,
             headers=self.headers,
@@ -56,22 +54,24 @@ class AZenv(ProxyTester):
 
         return response
 
+    def get_proxy(self) -> Proxy:
+        return Proxy.get_for_scan(protocols=self.protocols)
+
     def test(self, proxy: Proxy) -> ProxyTest:
         """
         Request proxy judge AZenv URL using a proxy and parse response.
-        Update database with test data for current proxy.
 
         Args:
             proxy (Proxy): proxy being tested
 
         Returns:
-            ProxyTest: resulting test data model
+            ProxyTest: test results
         """
-        # Initialize new proxy test model
         proxy_test = ProxyTest(proxy=proxy, info="AZenv test")
+        proxy_url = proxy.url()
 
         try:
-            response = self.__request(proxy)
+            response = self.__request(proxy_url)
 
             proxy_test.latency = int(response.elapsed.total_seconds() * 1000)
 
@@ -87,9 +87,9 @@ class AZenv(ProxyTester):
                 headers = self.__parse_response(response.text)
                 result = self.__analyze_headers(proxy_test, headers)
 
-                # improve this debug
+                # TODO: improve this debug
                 if not result and self.args.verbose:
-                    filename = f'{self.args.download_path}/response_azenv_{proxy.ip}.txt'
+                    filename = f'{self.args.debug_path}/response_azenv_{proxy.ip}.txt'
 
                     export_file(filename, response.text)
                     log.debug('Response content saved to: %s', filename)
