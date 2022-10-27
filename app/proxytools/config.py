@@ -32,7 +32,6 @@ class Config:
         else:
             Config.__args = get_args()
             self.__check_config()
-            self.__setup_workspace()
 
     def __check_config(self):
         # if not self.__args.proxy_file and not self.__args.proxy_scrap:
@@ -43,15 +42,6 @@ class Config:
 
         if self.__args.manager_testers <= 0:
             raise RuntimeError('Proxy tester max concurrency must be greater than zero.')
-
-    def __setup_workspace(self):
-        if not os.path.exists(self.__args.log_path):
-            # Create directory for log files.
-            os.mkdir(self.__args.log_path)
-
-        if not os.path.exists(self.__args.download_path):
-            # Create directory for downloaded files.
-            os.mkdir(self.__args.download_path)
 
 
 ###############################################################################
@@ -127,8 +117,12 @@ def get_args():
                         default='logs',
                         type=str_path)
     parser.add_argument('--download-path',
-                        help='Directory where download files are saved.',
+                        help='Directory where downloaded files are saved.',
                         default='downloads',
+                        type=str_path)
+    parser.add_argument('--debug-path',
+                        help='Directory where debug files are saved.',
+                        default='debug',
                         type=str_path)
     parser.add_argument('-pj', '--proxy-judge',
                         help='URL for AZenv script used to test proxies.',
