@@ -56,11 +56,12 @@ We're not responsible for these proxies and we're not responsible for what users
 - ~~jsbeautifier==1.11.0~~ We're using a modified version of [packer.py](https://github.com/beautify-web/js-beautify/blob/master/python/jsbeautifier/unpackers/packer.py)
 
 ## TODO
-
 - Cleanup queries - proxies stuck on testing status + old tests + old and bad proxies.
 - Add flask webserver for web interface/API development.
     - **This should replace file output.**
     - Consider importing files through web interface as well.
+- Add socks version tester: https://github.com/TheSpeedX/socker/blob/master/socker.py
+- Check proxy reputation on blacklist/RBL sites (e.g: http://www.anti-abuse.org/, https://mxtoolbox.com/blacklists.aspx, https://tinycp.com/page/show/rbl-check)
 - Consider incremental sleep when testers are idle / reducing re-test cooldown period.
 - Scrapper database model to hold stats and general activity.
 - Add support for web scrapping with selenium + webdriver.

@@ -89,9 +89,18 @@ class AZenv(ProxyTester):
 
                 # TODO: improve this debug
                 if not result and self.args.verbose:
-                    filename = f'{self.args.debug_path}/response_azenv_{proxy.ip}.txt'
-
-                    export_file(filename, response.text)
+                    filename = f'{self.args.debug_path}/azenv_{proxy.ip}.txt'
+                    info = f'{proxy.id} - {proxy_url} - {proxy_test.info}\n'
+                    info += '\n-----------------\n'
+                    info += f'Tester Headers:   {self.headers}\n'
+                    info += '\n-----------------\n'
+                    info += f'Request Headers:  {response.request.headers}\n'
+                    info += '\n-----------------\n'
+                    info += f'Parsed Headers:   {headers}\n'
+                    info += '\n-----------------\n'
+                    info += f'Response Headers: {response.headers}\n'
+                    info += '\n-----------------\n\n'
+                    export_file(filename, info + response.text)
                     log.debug('Response content saved to: %s', filename)
 
             response.close()

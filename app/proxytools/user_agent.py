@@ -11,7 +11,7 @@ class UserAgent:
     PLATFORMS = ['windows', 'macos', 'linux']
 
     WINDOWS = [
-        'Windows NT 10.0; Win64; x64;',
+        'Windows NT 10.0; Win64; x64',
     ]
 
     MACOS = [
@@ -21,7 +21,7 @@ class UserAgent:
     ]
 
     LINUX = [
-        'X11; Linux x86_64;'
+        'X11; Linux x86_64'
     ]
 
     BROWSERS = ['chrome', 'firefox', 'safari']
@@ -60,4 +60,4 @@ class UserAgent:
         else:
             raise RuntimeError(f'Unknown browser requested: {browser}')
 
-        return 'Mozilla 5.0 ' + ua % platform
+        return 'Mozilla/5.0 ' + ua % platform

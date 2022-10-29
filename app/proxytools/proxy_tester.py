@@ -43,12 +43,13 @@ class ProxyTester(ABC, Thread):
             manager (TestManager): thread executor and task manager
             id (int): thread ID
         """
-        super().__init__(name=f'proxy-tester-{id:03d}')
+        ABC.__init__(self)  # explicit calls without super
+        Thread.__init__(self, name=f'proxy-tester-{id:03d}')
         self.manager = manager
         self.id = id
         self.args = Config.get_args()
         self.user_agent = UserAgent.generate(self.args.user_agent)
-        self.headers = self.BASE_HEADERS
+        self.headers = self.BASE_HEADERS.copy()
         self.headers['User-Agent'] = self.user_agent
 
     def run(self):
@@ -87,7 +88,6 @@ class ProxyTester(ABC, Thread):
 
             # Release database connection for test duration
             proxy.database().close()
-
             try:
                 # Execute and parse proxy test
                 proxy_test = self.test(proxy)

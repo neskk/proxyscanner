@@ -57,6 +57,7 @@ def configure_logging(log, verbosity=0, output_path='logs', output_name='-app'):
         log.info(f'Running in verbose mode (-{arg_str}).')
 
     if verbosity < 2:
+        logging.getLogger('socks').setLevel(logging.INFO)
         logging.getLogger('peewee').setLevel(logging.INFO)
     if verbosity < 3:
         logging.getLogger('requests').setLevel(logging.WARNING)
