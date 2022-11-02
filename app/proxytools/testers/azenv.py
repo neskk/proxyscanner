@@ -10,21 +10,18 @@ from requests.packages import urllib3
 from urllib.parse import urlparse
 
 from ..models import Proxy, ProxyProtocol, ProxyStatus, ProxyTest
-from ..proxy_tester import ProxyTester
+from ..test import Test
 from ..utils import export_file
 
 log = logging.getLogger(__name__)
 
 
-class AZenv(ProxyTester):
+class AZenv(Test):
 
     STATUS_BANLIST = [403, 409]
 
-    def __init__(self, manager, id):
-        super().__init__(manager, id)
-
-        self.local_ip = self.manager.local_ip
-        self.protocols = [ProxyProtocol.HTTP, ProxyProtocol.SOCKS5]
+    def __init__(self, manager):
+        super().__init__(manager)
 
         # Customize headers for test
         self.headers['Host'] = urlparse(self.args.proxy_judge).hostname
@@ -54,10 +51,12 @@ class AZenv(ProxyTester):
 
         return response
 
-    def get_proxy(self) -> Proxy:
-        return Proxy.get_for_scan(protocols=self.protocols)
+    def __skip_test(self, proxy: Proxy) -> bool:
+        # if proxy.protocol == ProxyProtocol.SOCKS4:
+        #     return True
+        return False
 
-    def test(self, proxy: Proxy) -> ProxyTest:
+    def run(self, proxy: Proxy) -> ProxyTest:
         """
         Request proxy judge AZenv URL using a proxy and parse response.
 
@@ -67,9 +66,12 @@ class AZenv(ProxyTester):
         Returns:
             ProxyTest: test results
         """
-        proxy_test = ProxyTest(proxy=proxy, info="AZenv test")
         proxy_url = proxy.url()
+        if self.__skip_test(proxy):
+            log.debug('Skipped AZenv test for proxy: %s', proxy_url)
+            return None
 
+        proxy_test = ProxyTest(proxy=proxy, info="AZenv test")
         try:
             response = self.__request(proxy_url)
 
@@ -115,7 +117,7 @@ class AZenv(ProxyTester):
             proxy_test.info = 'Unexpected error - ' + type(e).__name__
             log.exception('Unexpected error: %s', e)
 
-        # Save current proxy test results
+        # Save test results
         proxy_test.save()
         return proxy_test
 

@@ -12,7 +12,7 @@ from requests.packages import urllib3
 
 from .ip2location import IP2LocationDatabase
 from .config import Config
-
+from .proxy_tester import ProxyTester
 from .testers.azenv import AZenv
 
 
@@ -40,10 +40,12 @@ class TestManager():
         urllib3.disable_warnings()
         # logging.captureWarnings(True)
 
-        self.local_ip = None
-        self.__get_local_ip()
+        self.local_ip = self.find_local_ip()
+        # Test sequence to be executed on each proxy
+        self.test_classes = [AZenv]
 
-    def __get_local_ip(self):
+    def find_local_ip(self):
+        ip = None
         try:
             r = requests.get(self.args.proxy_judge)
             r.raise_for_status()
@@ -52,12 +54,14 @@ class TestManager():
 
             for line in lines:
                 if 'REMOTE_ADDR' in line:
-                    self.local_ip = line.split(' = ')[1]
+                    ip = line.split('=')[1].strip()
                     break
 
-            log.info('Local IP: %s', self.local_ip)
+            log.info('Local IP: %s', ip)
         except Exception:
             log.exception('Failed to connect to proxy judge.')
+
+        return ip
 
     def mark_success(self):
         with self.stats_lock:
@@ -96,12 +100,11 @@ class TestManager():
         manager.daemon = True
         manager.start()
 
-        tester_class = AZenv
         tester_threads = []
 
         # Start proxy tester threads.
         for id in range(self.args.manager_testers):
-            tester = tester_class(self, id)
+            tester = ProxyTester(id, self)
             tester.daemon = True
 
             tester_threads.append(tester)

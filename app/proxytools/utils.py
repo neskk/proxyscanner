@@ -10,6 +10,7 @@ import sys
 import time
 
 from timeit import default_timer as timer
+from urllib import request
 
 log = logging.getLogger(__name__)
 
@@ -68,16 +69,15 @@ def load_file(filename):
     lines = []
 
     with open(filename, 'r', encoding='utf-8') as f:
-        for line in f:
+        for line in f.readlines():
             stripped = line.strip()
-
             # Ignore blank lines and comment lines.
-            if len(stripped) == 0 or line.startswith('#'):
+            if len(stripped) == 0 or stripped.startswith('#'):
                 continue
 
-            lines.append(lines)
+            lines.append(stripped)
 
-        log.info('Read %d lines from file %s.', len(lines), filename)
+        log.debug('Read %d lines from file: %s', len(lines), filename)
 
     return lines
 
@@ -90,6 +90,26 @@ def export_file(filename, content):
                 file.write(line + '\n')
         else:
             file.write(content)
+
+
+def find_local_ip(self):
+    ip = None
+    try:
+        r = request.get(self.args.proxy_judge)
+        r.raise_for_status()
+        response = r.text
+        lines = response.split('\n')
+
+        for line in lines:
+            if 'REMOTE_ADDR' in line:
+                ip = line.split('=')[1].strip()
+                break
+
+        log.info('Local IP: %s', self.local_ip)
+    except Exception:
+        log.exception('Failed to connect to proxy judge.')
+
+    return ip
 
 
 def validate_ip(ip):

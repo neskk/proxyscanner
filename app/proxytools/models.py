@@ -5,8 +5,8 @@ import logging
 import sys
 
 from peewee import (
-    DatabaseProxy, Model, ModelSelect, fn,
-    OperationalError, IntegrityError,
+    DatabaseProxy, fn, OperationalError, IntegrityError,
+    Model, ModelSelect, ModelUpdate, ModelDelete,
     ForeignKeyField, BigAutoField, DateTimeField, CharField,
     IntegerField, BigIntegerField, SmallIntegerField, IPField)
 from playhouse.pool import PooledMySQLDatabase
@@ -151,7 +151,7 @@ class Proxy(BaseModel):
 
         return url
 
-    def url_format_proxychains(self):
+    def url_proxychains(self):
         """
         Build a proxychains URL string from proxy data.
         Format: socks5 192.168.67.78 1080 lamer secret
@@ -323,7 +323,54 @@ class Proxy(BaseModel):
         return count
 
     @staticmethod
-    def delete_old(age_days=365):
+    def unlock_stuck(age_minutes=10) -> ModelUpdate:
+        """
+        Unlock proxies stuck in testing for a long time.
+
+        Args:
+            age_minutes (int, optional): Maximum test time. Defaults to 10 minutes.
+
+        Returns:
+            query: Update query
+        """
+        min_age = datetime.utcnow() - timedelta(minutes=age_minutes)
+        conditions = (Proxy.modified < min_age)
+        conditions = (
+            (Proxy.modified < min_age) &
+            (Proxy.status == ProxyStatus.TESTING))
+
+        query = (Proxy
+                 .update(status=ProxyStatus.ERROR, modified=datetime.utcnow())
+                 .where(conditions))
+
+        return query
+
+    @staticmethod
+    def delete_failed(age_days=14) -> ModelDelete:
+        """
+        Delete old proxies with no success tests. and respective tests.
+
+        Args:
+            age_days (int, optional): Minimum proxy age. Defaults to 14 days.
+
+        Returns:
+            query: Delete query
+        """
+        min_age = datetime.utcnow() - timedelta(days=age_days)
+        conditions = (
+            (Proxy.test_count > 30) &
+            ((Proxy.test_count - Proxy.fail_count) == 0) &
+            (Proxy.created < min_age) &
+            (Proxy.status != ProxyStatus.TESTING))
+
+        query = (Proxy
+                 .delete()
+                 .where(conditions))
+
+        return query
+
+    @staticmethod
+    def delete_old(age_days=365) -> ModelDelete:
         """
         Delete old proxies and respective tests.
 

@@ -68,8 +68,10 @@ class App:
             log.critical('Test manager response validation failed.')
             sys.exit(1)
 
-        # Remove failed proxies from database.
-        # Proxy.clean_failed()
+        # Unlock proxies stuck in testing.
+        query = Proxy.unlock_stuck()
+        rows = query.execute()
+        log.info('Unlocked %d proxies stuck in testing.', rows)
 
         # Fetch and insert new proxies from configured sources.
         for proxy_parser in self.parsers:
@@ -87,8 +89,15 @@ class App:
                 for proxy_parser in self.parsers:
                     proxy_parser.load_proxylist()
 
+                # Unlock proxies stuck in testing.
+                query = Proxy.unlock_stuck()
+                rows = query.execute()
+                log.info('Unlocked %d proxies stuck in testing.', rows)
+
                 # Remove failed proxies from database.
-                Proxy.clean_failed()
+                query = Proxy.delete_failed()
+                rows = query.execute()
+                log.info('Deleted %d proxies without a succesful test.', rows)
 
                 # Validate proxy tester benchmark responses.
                 if not self.manager.validate_responses():
@@ -111,46 +120,51 @@ class App:
         working_socks = []
 
         if args.output_kinancity:
-            working_http = Proxy.get_valid(
+            query = Proxy.get_valid(
                 args.output_limit,
                 args.proxy_scan_interval,
                 ProxyProtocol.HTTP)
+            working_http = query.execute()
 
-            self.export_kinancity(args.output_kinancity, working_http)
+            App.export_kinancity(args.output_kinancity, working_http)
 
         if args.output_proxychains:
-            proxylist = Proxy.get_valid(
+            query = Proxy.get_valid(
                 args.output_limit,
                 args.proxy_scan_interval,
                 args.proxy_protocol)
+            proxylist = query.execute()
 
-            self.export_proxychains(args.output_proxychains, proxylist)
+            App.export_proxychains(args.output_proxychains, proxylist)
 
         if args.output_rocketmap:
-            working_socks = Proxy.get_valid(
+            query = Proxy.get_valid(
                 args.output_limit,
                 args.proxy_scan_interval,
                 ProxyProtocol.SOCKS5)
+            working_socks = query.execute()
 
-            self.export(args.output_rocketmap, working_socks)
+            App.export(args.output_rocketmap, working_socks)
 
         if args.output_http:
             if not working_http:
-                working_http = Proxy.get_valid(
+                query = Proxy.get_valid(
                     args.output_limit,
                     args.proxy_scan_interval,
                     ProxyProtocol.HTTP)
+                working_http = query.execute()
 
-            self.export(args.output_http, working_http, args.output_no_protocol)
+            App.export(args.output_http, working_http, args.output_no_protocol)
 
         if args.output_socks:
             if not working_socks:
-                working_socks = Proxy.get_valid(
+                query = Proxy.get_valid(
                     args.output_limit,
                     args.proxy_scan_interval,
                     ProxyProtocol.SOCKS5)
+                working_socks = query.execute()
 
-            self.export(args.output_socks, working_socks, args.output_no_protocol)
+            App.export(args.output_socks, working_socks, args.output_no_protocol)
 
     def __cleanup(self):
         """ Handle shutdown tasks """
@@ -163,7 +177,7 @@ class App:
 
         log.info('Writing %d working proxies to: %s', len(proxylist), filename)
 
-        proxylist = [Proxy.url_format(proxy, no_protocol) for proxy in proxylist]
+        proxylist = [proxy.url(no_protocol) for proxy in proxylist]
 
         utils.export_file(filename, proxylist)
 
@@ -175,7 +189,7 @@ class App:
         log.info('Writing %d working proxies to: %s',
                  len(proxylist), filename)
 
-        proxylist = [Proxy.url_format(proxy) for proxy in proxylist]
+        proxylist = [proxy.url() for proxy in proxylist]
 
         proxylist = '[' + ','.join(proxylist) + ']'
 
@@ -189,6 +203,6 @@ class App:
         log.info('Writing %d working proxies to: %s',
                  len(proxylist), filename)
 
-        proxylist = [Proxy.url_format_proxychains(proxy) for proxy in proxylist]
+        proxylist = [proxy.url_proxychains() for proxy in proxylist]
 
         utils.export_file(filename, proxylist)

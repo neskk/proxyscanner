@@ -4,7 +4,6 @@
 import logging
 import random
 import time
-from abc import ABC, abstractmethod
 from datetime import datetime
 from threading import Thread
 
@@ -12,29 +11,17 @@ from playhouse.pool import MaxConnectionsExceeded
 
 from .models import Proxy, ProxyStatus, ProxyTest
 from .config import Config
-from .user_agent import UserAgent
-
 
 log = logging.getLogger(__name__)
 
 
-class ProxyTester(ABC, Thread):
+class ProxyTester(Thread):
     """
     Proxy tester thread class.
     Closely tied with ProxyManager class.
     """
-    STATUS_FORCELIST = [500, 502, 503, 504]
 
-    BASE_HEADERS = {
-        'Upgrade-Insecure-Requests': '1',
-        'Connection': 'close',
-        'Accept': ('text/html,application/xhtml+xml,'
-                   'application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8'),
-        'Accept-Language': 'en-GB,en-US;q=0.9,en;q=0.8',
-        'Accept-Encoding': 'br, gzip, deflate'
-    }
-
-    def __init__(self, manager, id: int):
+    def __init__(self, id: int, manager):
         """
         Abstract class for a proxy tester thread.
         Defines base HTTP headers that can be customized for tests.
@@ -43,14 +30,17 @@ class ProxyTester(ABC, Thread):
             manager (TestManager): thread executor and task manager
             id (int): thread ID
         """
-        ABC.__init__(self)  # explicit calls without super
-        Thread.__init__(self, name=f'proxy-tester-{id:03d}')
+        super().__init__(name=f'proxy-tester-{id:03d}')
         self.manager = manager
         self.id = id
         self.args = Config.get_args()
-        self.user_agent = UserAgent.generate(self.args.user_agent)
-        self.headers = self.BASE_HEADERS.copy()
-        self.headers['User-Agent'] = self.user_agent
+        self.protocols = []  # only test ProxyProtocol in list (none: all)
+        self.tests = []
+        for test in self.manager.test_classes:
+            try:
+                self.tests.append(test(manager))
+            except Exception:
+                log.exception('Failed to initialize test: %s', test)
 
     def run(self):
         """
@@ -67,7 +57,7 @@ class ProxyTester(ABC, Thread):
             try:
                 with Proxy.database().atomic():
                     # Grab and lock proxy
-                    proxy = self.get_proxy()
+                    proxy = Proxy.get_for_scan(protocols=self.protocols)
 
                     if proxy is None:
                         log.debug('No proxy to test... Re-checking in 10sec.')
@@ -88,14 +78,22 @@ class ProxyTester(ABC, Thread):
 
             # Release database connection for test duration
             proxy.database().close()
-            try:
-                # Execute and parse proxy test
-                proxy_test = self.test(proxy)
-                self.__update(proxy, proxy_test)
-            except Exception:
-                log.exception('Unexcepted error!')
+
+            # Execute tests
+            self.__execute_tests(proxy)
 
         log.debug(f'{self.name} shutdown.')
+
+    def __execute_tests(self, proxy: Proxy):
+        for test in self.tests:
+            try:
+                # Execute test
+                proxy_test = test.run(proxy)
+                if proxy_test:
+                    # Commit proxy test results
+                    self.__update(proxy, proxy_test)
+            except Exception:
+                log.exception('Error executing test: %s', test)
 
     def __update(self, proxy: Proxy, proxy_test: ProxyTest) -> None:
         """
@@ -120,26 +118,3 @@ class ProxyTester(ABC, Thread):
             self.manager.mark_fail()
         else:
             self.manager.mark_success()
-
-    @abstractmethod
-    def get_proxy(self) -> Proxy:
-        """
-        Fetch a single Proxy from the database for testing.
-
-        Returns:
-            Proxy: selected for testing
-        """
-        pass
-
-    @abstractmethod
-    def test(self, proxy: Proxy) -> ProxyTest:
-        """
-        Perform tests with proxy and return parsed results.
-
-        Args:
-            proxy (Proxy): proxy being tested
-
-        Returns:
-            ProxyTest: test results
-        """
-        pass
