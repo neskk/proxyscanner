@@ -51,7 +51,7 @@ class ProxyScrapper(object):
 
         self.session.proxies = {'http': self.proxy, 'https': self.proxy}
 
-    def request_url(self, url, referer=None, post={}):
+    def request_url(self, url, referer=None, post={}, json=False):
         content = None
         try:
             # Setup request headers.
@@ -73,7 +73,10 @@ class ProxyScrapper(object):
                     headers=headers)
 
             if response.status_code == 200:
-                content = response.text
+                if json:
+                    content = response.json()
+                else:
+                    content = response.text
 
             response.close()
         except Exception as e:

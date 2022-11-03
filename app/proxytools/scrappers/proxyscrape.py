@@ -2,9 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import logging
-import re
-
-from bs4 import BeautifulSoup
 
 from ..proxy_scrapper import ProxyScrapper
 from ..utils import load_file

@@ -14,6 +14,8 @@ from .scrappers.socksproxy import Socksproxy
 from .scrappers.spysone import SpysHTTPS, SpysSOCKS
 from .scrappers.openproxy import OpenProxyHTTP, OpenProxySOCKS4, OpenProxySOCKS5
 from .scrappers.proxyscrape import ProxyScrapeHTTP, ProxyScrapeSOCKS4, ProxyScrapeSOCKS5
+from .scrappers.thespeedx import TheSpeedXHTTP, TheSpeedXSOCKS4, TheSpeedXSOCKS5
+from .scrappers.geonode import GeoNodeHTTP, GeoNodeSOCKS4, GeoNodeSOCKS5
 # from .scrappers.idcloak import Idcloak
 # from .scrappers.proxyserverlist24 import Proxyserverlist24
 # from .scrappers.sockslist import Sockslist
@@ -146,6 +148,8 @@ class HTTPParser(ProxyParser):
         self.scrappers.append(ProxyNova())
         self.scrappers.append(OpenProxyHTTP())
         self.scrappers.append(ProxyScrapeHTTP())
+        self.scrappers.append(TheSpeedXHTTP())
+        self.scrappers.append(GeoNodeHTTP())
 
 
 class SOCKS4Parser(ProxyParser):
@@ -157,6 +161,8 @@ class SOCKS4Parser(ProxyParser):
 
         self.scrappers.append(OpenProxySOCKS4())
         self.scrappers.append(ProxyScrapeSOCKS4())
+        self.scrappers.append(TheSpeedXSOCKS4())
+        self.scrappers.append(GeoNodeSOCKS4())
 
 
 class SOCKS5Parser(ProxyParser):
@@ -170,3 +176,5 @@ class SOCKS5Parser(ProxyParser):
         self.scrappers.append(SpysSOCKS())  # SpyOne
         self.scrappers.append(OpenProxySOCKS5())
         self.scrappers.append(ProxyScrapeSOCKS5())
+        self.scrappers.append(TheSpeedXSOCKS5())
+        self.scrappers.append(GeoNodeSOCKS5())
