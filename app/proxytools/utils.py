@@ -138,6 +138,24 @@ def random_ip():
     return int2ip(random.randint(1, 0xffffffff))
 
 
+def http_headers(keep_alive=False):
+    """
+    Browser base HTTP request headers.
+
+    Returns:
+        dict: HTTP headers without user-agent/referer.
+    """
+    return {
+        'Upgrade-Insecure-Requests': '1',
+        'Connection': 'keep-alive' if keep_alive else 'close',
+        # 'Accept': '*/*',
+        'Accept': ('text/html,application/xhtml+xml,'
+                   'application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8'),
+        'Accept-Language': 'en-GB,en-US;q=0.9,en;q=0.8',
+        'Accept-Encoding': 'gzip, deflate'
+    }
+
+
 def time_func(func):
     """ Wrapper function to measure the execution time of a function """
     def wrap_func(*args, **kwargs):

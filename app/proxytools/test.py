@@ -8,6 +8,7 @@ from abc import ABC, abstractmethod
 from .config import Config
 from .models import Proxy, ProxyTest
 from .user_agent import UserAgent
+from .utils import http_headers
 
 log = logging.getLogger(__name__)
 
@@ -16,15 +17,6 @@ class Test(ABC):
 
     STATUS_FORCELIST = [500, 502, 503, 504]
 
-    BASE_HEADERS = {
-        'Upgrade-Insecure-Requests': '1',
-        'Connection': 'close',
-        'Accept': ('text/html,application/xhtml+xml,'
-                   'application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8'),
-        'Accept-Language': 'en-GB,en-US;q=0.9,en;q=0.8',
-        'Accept-Encoding': 'br, gzip, deflate'
-    }
-
     def __init__(self, manager):
         """
         Abstract class for a proxy test.
@@ -32,7 +24,7 @@ class Test(ABC):
         """
         self.args = Config.get_args()
         self.user_agent = UserAgent.generate(self.args.user_agent)
-        self.headers = self.BASE_HEADERS.copy()
+        self.headers = http_headers()
         self.headers['User-Agent'] = self.user_agent
         self.local_ip = manager.local_ip
 

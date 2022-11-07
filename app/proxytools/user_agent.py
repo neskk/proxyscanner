@@ -8,6 +8,7 @@ class UserAgent:
 
     https://www.whatismybrowser.com/guides/the-latest-user-agent
     """
+
     PLATFORMS = ['windows', 'macos', 'linux']
 
     WINDOWS = [

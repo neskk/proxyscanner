@@ -16,6 +16,7 @@ log = logging.getLogger(__name__)
 
 # PremProxy.com has anti-scrapping measures and pages might not be loaded.
 # This should only happen if you scrap this site too frequently.
+# Visitor IP is recorded with User-Agent.
 class Premproxy(ProxyScrapper):
 
     def __init__(self):

@@ -3,29 +3,24 @@
 
 import logging
 import requests
+
+from abc import ABC, abstractmethod
 from urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 
 from .config import Config
-from .utils import export_file
+from .user_agent import UserAgent
+from .utils import export_file, http_headers
 
 log = logging.getLogger(__name__)
 
 
-class ProxyScrapper(object):
-    REFERER = 'https://google.com'
-    USER_AGENT = ('Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:105.0) '
-                  'Gecko/20100101 Firefox/105.0')
-    CLIENT_HEADERS = {
-        'User-Agent': USER_AGENT,
-        'Accept-Language': 'en-US,en',
-        'Accept-Encoding': 'gzip, deflate',
-        'Referer': REFERER,
-        'Upgrade-Insecure-Requests': '1'
-    }
+class ProxyScrapper(ABC):
+
     STATUS_FORCELIST = [500, 502, 503, 504]
 
     def __init__(self, name):
+        super().__init__()
         args = Config.get_args()
 
         self.timeout = args.scrapper_timeout
@@ -35,13 +30,14 @@ class ProxyScrapper(object):
         self.download_path = args.download_path
 
         self.name = name
-        log.info('Initialized proxy scrapper: %s.', name)
-
+        self.user_agent = UserAgent.generate(args.user_agent)
         self.session = None
         self.retries = Retry(
             total=args.scrapper_retries,
             backoff_factor=args.scrapper_backoff_factor,
             status_forcelist=self.STATUS_FORCELIST)
+
+        log.info('Initialized proxy scrapper: %s.', name)
 
     def setup_session(self):
         self.session = requests.Session()
@@ -55,9 +51,9 @@ class ProxyScrapper(object):
         content = None
         try:
             # Setup request headers.
-            headers = self.CLIENT_HEADERS.copy()
-            if referer:
-                headers['Referer'] = referer
+            headers = http_headers(keep_alive=True)
+            headers['user_agent'] = self.user_agent
+            headers['Referer'] = referer or 'https://www.google.com'
 
             if post:
                 headers['Content-Type'] = 'application/x-www-form-urlencoded'
@@ -72,11 +68,12 @@ class ProxyScrapper(object):
                     timeout=self.timeout,
                     headers=headers)
 
-            if response.status_code == 200:
-                if json:
-                    content = response.json()
-                else:
-                    content = response.text
+            response.raise_for_status()
+
+            if json:
+                content = response.json()
+            else:
+                content = response.text
 
             response.close()
         except Exception as e:
@@ -88,17 +85,17 @@ class ProxyScrapper(object):
         result = False
         try:
             # Setup request headers.
-            if referer:
-                headers = self.CLIENT_HEADERS.copy()
-                headers['Referer'] = referer
-            else:
-                headers = self.CLIENT_HEADERS
+            headers = http_headers(keep_alive=True)
+            headers['user_agent'] = self.user_agent
+            headers['Referer'] = referer or 'https://www.google.com'
 
             response = self.session.get(
                 url,
                 proxies={'http': self.proxy, 'https': self.proxy},
                 timeout=self.timeout,
                 headers=headers)
+
+            response.raise_for_status()
 
             with open(filename, 'wb') as fd:
                 for chunk in response.iter_content(chunk_size=128):
@@ -126,7 +123,11 @@ class ProxyScrapper(object):
                 break
         return valid
 
-    # Sub-classes are required to implement this method.
-    # Method implementations must return found proxylist.
-    def scrap(self):
-        raise NotImplementedError('Must override scrap() method.')
+    @abstractmethod
+    def scrap(self) -> list:
+        """
+        Scrap web content for valuable proxies.
+        Returns:
+            list: proxy list in url string format
+        """
+        pass
