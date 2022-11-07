@@ -120,9 +120,9 @@ def get_args():
                         help='Directory where downloaded files are saved.',
                         default='downloads',
                         type=str_path)
-    parser.add_argument('--debug-path',
-                        help='Directory where debug files are saved.',
-                        default='debug',
+    parser.add_argument('--tmp-path',
+                        help='Directory where temporary files are saved.',
+                        default='downloads/tmp',
                         type=str_path)
     parser.add_argument('-pj', '--proxy-judge',
                         help='URL for AZenv script used to test proxies.',

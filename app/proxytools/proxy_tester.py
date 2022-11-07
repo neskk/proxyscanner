@@ -85,13 +85,22 @@ class ProxyTester(Thread):
         log.debug(f'{self.name} shutdown.')
 
     def __execute_tests(self, proxy: Proxy):
+        proxy_test = None
+
         for test in self.tests:
             try:
-                # Execute test
                 proxy_test = test.run(proxy)
+                if not proxy_test:
+                    continue
+
+                # Update proxy status with results from the last executed test
                 if proxy_test:
-                    # Commit proxy test results
                     self.__update(proxy, proxy_test)
+
+                # Stop if proxy fails a test
+                if proxy_test.status != ProxyStatus.OK:
+                    break
+
             except Exception:
                 log.exception('Error executing test: %s', test)
 

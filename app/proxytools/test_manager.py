@@ -14,6 +14,7 @@ from .ip2location import IP2LocationDatabase
 from .config import Config
 from .proxy_tester import ProxyTester
 from .testers.azenv import AZenv
+from .testers.google import Google
 
 
 log = logging.getLogger(__name__)
@@ -42,7 +43,7 @@ class TestManager():
 
         self.local_ip = self.find_local_ip()
         # Test sequence to be executed on each proxy
-        self.test_classes = [AZenv]
+        self.test_classes = [AZenv, Google]
 
     def find_local_ip(self):
         ip = None

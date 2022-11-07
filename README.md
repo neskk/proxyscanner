@@ -72,8 +72,8 @@ We're not responsible for these proxies and we're not responsible for what users
 ## Usage
 
 ```
-usage: start.py [-h] [-cf CONFIG] [-v] [--log-path LOG_PATH] [--download-path DOWNLOAD_PATH] [--debug-path DEBUG_PATH] [-pj PROXY_JUDGE] [-ua {random,chrome,firefox,safari}] --db-name DB_NAME --db-user DB_USER --db-pass DB_PASS [--db-host DB_HOST]
-                [--db-port DB_PORT] [-Pf PROXY_FILE] [-Ps] [-Pp {HTTP,SOCKS4,SOCKS5}] [-Pri PROXY_REFRESH_INTERVAL] [-Psi PROXY_SCAN_INTERVAL] [-Pic [PROXY_IGNORE_COUNTRY ...]] [-Oi OUTPUT_INTERVAL] [-Ol OUTPUT_LIMIT] [-Onp] [-Oh OUTPUT_HTTP] [-Os OUTPUT_SOCKS]     
+usage: start.py [-h] [-cf CONFIG] [-v] [--log-path LOG_PATH] [--download-path DOWNLOAD_PATH] [--tmp-path TMP_PATH] [-pj PROXY_JUDGE] [-ua {random,chrome,firefox,safari}] --db-name DB_NAME --db-user DB_USER --db-pass DB_PASS [--db-host DB_HOST] [--db-port DB_PORT]
+                [-Pf PROXY_FILE] [-Ps] [-Pp {HTTP,SOCKS4,SOCKS5}] [-Pri PROXY_REFRESH_INTERVAL] [-Psi PROXY_SCAN_INTERVAL] [-Pic [PROXY_IGNORE_COUNTRY ...]] [-Oi OUTPUT_INTERVAL] [-Ol OUTPUT_LIMIT] [-Onp] [-Oh OUTPUT_HTTP] [-Os OUTPUT_SOCKS]
                 [-Okc OUTPUT_KINANCITY] [-Opc OUTPUT_PROXYCHAINS] [-Orm OUTPUT_ROCKETMAP] [-Mni MANAGER_NOTICE_INTERVAL] [-Mt MANAGER_TESTERS] [-Tr TESTER_RETRIES] [-Tbf TESTER_BACKOFF_FACTOR] [-Tt TESTER_TIMEOUT] [-Tda] [-Tpv TESTER_POGO_VERSION]
                 [-Sr SCRAPPER_RETRIES] [-Sbf SCRAPPER_BACKOFF_FACTOR] [-St SCRAPPER_TIMEOUT] [-Sp SCRAPPER_PROXY]
 
@@ -85,8 +85,7 @@ optional arguments:
   --log-path LOG_PATH   Directory where log files are saved.
   --download-path DOWNLOAD_PATH
                         Directory where downloaded files are saved.
-  --debug-path DEBUG_PATH
-                        Directory where debug files are saved.
+  --tmp-path TMP_PATH   Directory where temporary files are saved.
   -pj PROXY_JUDGE, --proxy-judge PROXY_JUDGE
                         URL for AZenv script used to test proxies.
   -ua {random,chrome,firefox,safari}, --user-agent {random,chrome,firefox,safari}
@@ -157,6 +156,9 @@ Proxy Scrapper:
                         Connection timeout in seconds. Default: 5.
   -Sp SCRAPPER_PROXY, --scrapper-proxy SCRAPPER_PROXY
                         Use this proxy for webpage scrapping. Format: <proto>://[<user>:<pass>@]<ip>:<port> Default: None.
+
+Args that start with '--' (eg. -v) can also be set in a config file (app\config\config.ini or specified via -cf). Config file syntax allows: key=value, flag=true, stuff=[a,b,c] (for details, see syntax at https://goo.gl/R74nmi).
+If an arg is specified in more than one place, then commandline values override environment variables which override config file values which override defaults.
 ```
 
 

@@ -38,7 +38,7 @@ class ProxyParser(object):
         self.refresh_interval = args.proxy_refresh_interval
         self.protocol = protocol
 
-        # Configure proxy scrappers.
+        # Configure proxy scrappers
         self.scrappers = []
 
     def __parse_proxylist(self, proxylist):

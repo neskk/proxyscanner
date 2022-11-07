@@ -28,6 +28,7 @@ class UserAgent:
     BROWSERS = ['chrome', 'firefox', 'safari']
 
     CHROME = [
+        '(%s) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36',
         '(%s) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36',
         '(%s) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36',
     ]

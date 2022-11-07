@@ -51,8 +51,8 @@ class ProxyScrapper(ABC):
         content = None
         try:
             # Setup request headers.
-            headers = http_headers(keep_alive=True)
-            headers['user_agent'] = self.user_agent
+            headers = http_headers()
+            headers['User-Agent'] = self.user_agent
             headers['Referer'] = referer or 'https://www.google.com'
 
             if post:
@@ -86,7 +86,7 @@ class ProxyScrapper(ABC):
         try:
             # Setup request headers.
             headers = http_headers(keep_alive=True)
-            headers['user_agent'] = self.user_agent
+            headers['User-Agent'] = self.user_agent
             headers['Referer'] = referer or 'https://www.google.com'
 
             response = self.session.get(
