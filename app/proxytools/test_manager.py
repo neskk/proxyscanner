@@ -96,22 +96,30 @@ class TestManager():
 
     def start(self):
         # Start proxy manager thread.
-        manager = Thread(name='test-manager',
-                         target=self.__test_manager)
-        manager.daemon = True
-        manager.start()
+        self.manager = Thread(
+            name='test-manager',
+            target=self.__test_manager,
+            daemon=False)
+        self.manager.start()
 
-        tester_threads = []
+        self.tester_threads = []
 
         # Start proxy tester threads.
         for id in range(self.args.manager_testers):
             tester = ProxyTester(id, self)
-            tester.daemon = True
 
-            tester_threads.append(tester)
+            self.tester_threads.append(tester)
 
             tester.start()
             time.sleep(0.1)
+
+    def stop(self):
+        self.interrupt.set()
+
+        for thread in self.tester_threads:
+            thread.join()
+
+        self.manager.join()
 
     def __test_manager(self):
         """

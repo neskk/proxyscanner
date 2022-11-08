@@ -30,7 +30,7 @@ class ProxyTester(Thread):
             manager (TestManager): thread executor and task manager
             id (int): thread ID
         """
-        super().__init__(name=f'proxy-tester-{id:03d}')
+        super().__init__(name=f'proxy-tester-{id:03d}', daemon=False)
         self.manager = manager
         self.id = id
         self.args = Config.get_args()

@@ -39,9 +39,9 @@ class App:
         except (KeyboardInterrupt, SystemExit):
             self.__output()
 
-            # Signal the Event to stop the threads
-            self.manager.interrupted.set()
-            log.info('Waiting for proxy tester to shutdown...')
+            # Signal manager to stop threads
+            log.info('Waiting for proxy tests to finish...')
+            self.manager.stop()
         except Exception as e:
             log.exception(e)
         finally:
@@ -53,7 +53,7 @@ class App:
         if protocol is None or protocol == ProxyProtocol.HTTP:
             self.parsers.append(HTTPParser())
 
-        if protocol is None or protocol == ProxyProtocol.SOCK45:
+        if protocol is None or protocol == ProxyProtocol.SOCKS4:
             self.parsers.append(SOCKS4Parser())
 
         if protocol is None or protocol == ProxyProtocol.SOCKS5:
