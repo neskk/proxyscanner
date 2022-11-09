@@ -121,6 +121,7 @@ class ProxyTester(Thread):
             proxy.country = country
 
         proxy.save()
+        proxy.database().close()
 
         log.debug(f'{proxy_test.info}: {proxy.url()} ({proxy.latency}ms - {proxy.country})')
         if proxy_test.status != ProxyStatus.OK:

@@ -5,7 +5,8 @@ import logging
 
 from requests.adapters import HTTPAdapter
 from requests import Session, Response
-from requests.exceptions import ConnectionError, ConnectTimeout, RetryError, TooManyRedirects
+from requests.exceptions import (
+    ConnectionError, ConnectTimeout, RetryError, TooManyRedirects, RequestException)
 from requests.packages import urllib3
 
 from ..models import Proxy, ProxyProtocol, ProxyStatus, ProxyTest
@@ -109,9 +110,12 @@ class AZenv(Test):
         except ConnectTimeout:
             proxy_test.status = ProxyStatus.TIMEOUT
             proxy_test.info = 'Connection timed out'
-        except (ConnectionError, TooManyRedirects, RetryError, ConnectionResetError) as e:
+        except (ConnectionError, TooManyRedirects, RetryError) as e:
             proxy_test.status = ProxyStatus.ERROR
             proxy_test.info = 'Failed to connect - ' + type(e).__name__
+        except RequestException as e:
+            proxy_test.status = ProxyStatus.ERROR
+            proxy_test.info = 'Request exception - ' + type(e).__name__
         except Exception as e:
             proxy_test.status = ProxyStatus.ERROR
             proxy_test.info = 'Unexpected error - ' + type(e).__name__

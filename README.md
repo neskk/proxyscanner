@@ -57,10 +57,11 @@ We're not responsible for these proxies and we're not responsible for what users
 
 ## TODO
 - Cleanup queries - proxies stuck on testing status + old tests + old and bad proxies.
+- Register/Unregister mechanism for Scrappers on Parser.
+- Register/Unregister mechanism for Tests on Manager.
 - Add flask webserver for web interface/API development.
     - **This should replace file output.**
     - Consider importing files through web interface as well.
-- Add socks version tester: https://github.com/TheSpeedX/socker/blob/master/socker.py
 - Check proxy reputation on blacklist/RBL sites (e.g: http://www.anti-abuse.org/, https://mxtoolbox.com/blacklists.aspx, https://tinycp.com/page/show/rbl-check)
 - Consider incremental sleep when testers are idle / reducing re-test cooldown period.
 - Scrapper database model to hold stats and general activity.

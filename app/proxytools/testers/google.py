@@ -6,7 +6,8 @@ import logging
 from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
 from requests import Session, Response
-from requests.exceptions import ConnectionError, ConnectTimeout, RetryError, TooManyRedirects
+from requests.exceptions import (
+    ConnectionError, ConnectTimeout, RetryError, TooManyRedirects, RequestException)
 from requests.packages import urllib3
 
 from ..models import Proxy, ProxyProtocol, ProxyStatus, ProxyTest
@@ -45,7 +46,7 @@ class Google(Test):
             self.base_url,
             headers=self.headers,
             timeout=self.args.tester_timeout,
-            verify=False)  # ignore SSL errors
+            verify=True)  # ignore SSL errors
 
         return response
 
@@ -56,7 +57,7 @@ class Google(Test):
 
     def run(self, proxy: Proxy) -> ProxyTest:
         """
-        Request proxy judge AZenv URL using a proxy and parse response.
+        Request Google URL using a proxy and parse response.
 
         Args:
             proxy (Proxy): proxy being tested
@@ -107,6 +108,9 @@ class Google(Test):
         except (ConnectionError, TooManyRedirects, RetryError) as e:
             proxy_test.status = ProxyStatus.ERROR
             proxy_test.info = 'Failed to connect - ' + type(e).__name__
+        except RequestException as e:
+            proxy_test.status = ProxyStatus.ERROR
+            proxy_test.info = 'Request exception - ' + type(e).__name__
         except Exception as e:
             proxy_test.status = ProxyStatus.ERROR
             proxy_test.info = 'Unexpected error - ' + type(e).__name__
