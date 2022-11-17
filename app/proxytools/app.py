@@ -10,8 +10,8 @@ from timeit import default_timer
 from proxytools import utils
 from proxytools.config import Config
 from proxytools.test_manager import TestManager
-from proxytools.proxy_parser import MixedParser, HTTPParser, SOCKS4Parser, SOCKS5Parser
-from proxytools.models import init_database, ProxyProtocol, Proxy, ProxyTest
+from proxytools.proxy_parser import ProxyParser
+from proxytools.models import init_database, ProxyProtocol, Proxy
 
 log = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ class App:
 
         self.args = args
         self.manager = TestManager()
-        self.parsers = [MixedParser()]
+        self.parser = ProxyParser()
 
     def start(self):
         try:
@@ -49,15 +49,6 @@ class App:
             sys.exit()
 
     def __launch(self):
-        protocol = self.args.proxy_protocol
-        if protocol is None or protocol == ProxyProtocol.HTTP:
-            self.parsers.append(HTTPParser())
-
-        if protocol is None or protocol == ProxyProtocol.SOCKS4:
-            self.parsers.append(SOCKS4Parser())
-
-        if protocol is None or protocol == ProxyProtocol.SOCKS5:
-            self.parsers.append(SOCKS5Parser())
 
         # Validate proxy tester benchmark responses.
         if self.manager.validate_responses():
@@ -74,8 +65,7 @@ class App:
         log.info('Unlocked %d proxies stuck in testing.', rows)
 
         # Fetch and insert new proxies from configured sources.
-        for proxy_parser in self.parsers:
-            proxy_parser.load_proxylist()
+        self.parser.load_proxylist()
 
     def __work(self):
         refresh_timer = default_timer()
@@ -85,9 +75,8 @@ class App:
             now = default_timer()
             if now > refresh_timer + self.args.proxy_refresh_interval:
                 refresh_timer = now
-                log.info('Refreshing proxylists configured from sources.')
-                for proxy_parser in self.parsers:
-                    proxy_parser.load_proxylist()
+                log.info('Refreshing proxylists from configured sources.')
+                self.parser.load_proxylist()
 
                 # Unlock proxies stuck in testing.
                 query = Proxy.unlock_stuck()

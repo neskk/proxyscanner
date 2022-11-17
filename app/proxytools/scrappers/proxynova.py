@@ -6,9 +6,10 @@ import re
 
 from bs4 import BeautifulSoup
 
+from ..deobfuscate_js import deobfuscate_js
+from ..models import ProxyProtocol
 from ..proxy_scrapper import ProxyScrapper
 from ..utils import validate_ip
-from ..deobfuscate_js import deobfuscate_js
 
 log = logging.getLogger(__name__)
 
@@ -16,7 +17,7 @@ log = logging.getLogger(__name__)
 class ProxyNova(ProxyScrapper):
 
     def __init__(self):
-        super(ProxyNova, self).__init__('proxynova-com')
+        super(ProxyNova, self).__init__('proxynova-com', ProxyProtocol.HTTP)
         self.base_url = 'https://www.proxynova.com'
         self.urls = (
             'https://www.proxynova.com/proxy-server-list/elite-proxies/',

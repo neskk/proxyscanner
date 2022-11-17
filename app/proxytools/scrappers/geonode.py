@@ -4,6 +4,7 @@
 import logging
 import math
 
+from ..models import ProxyProtocol
 from ..proxy_scrapper import ProxyScrapper
 from ..utils import load_file
 
@@ -15,8 +16,8 @@ log = logging.getLogger(__name__)
 
 
 class GeoNode(ProxyScrapper):
-    def __init__(self, name):
-        super(GeoNode, self).__init__(name)
+    def __init__(self, name, protocol):
+        super(GeoNode, self).__init__(name, protocol)
         self.base_url = ('https://proxylist.geonode.com/api/proxy-list'
                          '?limit=500&sort_by=lastChecked&sort_type=desc'
                          '&anonymityLevel=elite&anonymityLevel=anonymous')
@@ -65,19 +66,19 @@ class GeoNode(ProxyScrapper):
 class GeoNodeHTTP(GeoNode):
 
     def __init__(self):
-        super(GeoNodeHTTP, self).__init__('geo-node-http')
+        super(GeoNodeHTTP, self).__init__('geo-node-http', ProxyProtocol.HTTP)
         self.base_url += '&protocols=http%2Chttps'
 
 
 class GeoNodeSOCKS4(GeoNode):
 
     def __init__(self):
-        super(GeoNodeSOCKS4, self).__init__('geo-node-socks4')
+        super(GeoNodeSOCKS4, self).__init__('geo-node-socks4', ProxyProtocol.SOCKS4)
         self.base_url += '&protocols=socks4'
 
 
 class GeoNodeSOCKS5(GeoNode):
 
     def __init__(self):
-        super(GeoNodeSOCKS5, self).__init__('geo-node-socks5')
+        super(GeoNodeSOCKS5, self).__init__('geo-node-socks5', ProxyProtocol.SOCKS5)
         self.base_url += '&protocols=socks5'

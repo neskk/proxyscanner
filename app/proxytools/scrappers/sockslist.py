@@ -7,6 +7,7 @@ import re
 from bs4 import BeautifulSoup
 
 from ..crazyxor import parse_crazyxor, decode_crazyxor
+from ..models import ProxyProtocol
 from ..proxy_scrapper import ProxyScrapper
 from ..utils import validate_ip
 
@@ -17,7 +18,7 @@ log = logging.getLogger(__name__)
 class Sockslist(ProxyScrapper):
 
     def __init__(self):
-        super(Sockslist, self).__init__('sockslist-net')
+        super(Sockslist, self).__init__('sockslist-net', ProxyProtocol.SOCKS5)
         self.base_url = 'https://sockslist.net'
         self.urls = (
             'https://sockslist.net/list/proxy-socks-5-list#proxylist',

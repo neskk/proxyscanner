@@ -10,6 +10,7 @@ import time
 from bs4 import BeautifulSoup
 from zipfile import ZipFile, is_zipfile
 
+from ..models import ProxyProtocol
 from ..proxy_scrapper import ProxyScrapper
 
 log = logging.getLogger(__name__)
@@ -18,7 +19,7 @@ log = logging.getLogger(__name__)
 class Vipsocks24(ProxyScrapper):
 
     def __init__(self):
-        super(Vipsocks24, self).__init__('vipsocks24-net')
+        super(Vipsocks24, self).__init__('vipsocks24-net', ProxyProtocol.SOCKS5)
         self.base_url = 'http://vipsocks24.net/'
         raise RuntimeError('vipsocks24.net is offline.')
 

@@ -9,6 +9,7 @@ import re
 from bs4 import BeautifulSoup
 
 from ..crazyxor import parse_crazyxor, decode_crazyxor
+from ..models import ProxyProtocol
 from ..packer import deobfuscate
 from ..proxy_scrapper import ProxyScrapper
 from ..utils import validate_ip
@@ -18,8 +19,8 @@ log = logging.getLogger(__name__)
 
 class SpysOne(ProxyScrapper):
 
-    def __init__(self, name):
-        super(SpysOne, self).__init__(name)
+    def __init__(self, name, protocol):
+        super(SpysOne, self).__init__(name, protocol)
 
     def scrap(self):
         self.setup_session()
@@ -165,7 +166,7 @@ class SpysOne(ProxyScrapper):
 class SpysHTTPS(SpysOne):
 
     def __init__(self):
-        super(SpysHTTPS, self).__init__('spys-one-https')
+        super(SpysHTTPS, self).__init__('spys-one-https', ProxyProtocol.HTTP)
         self.base_url = 'https://spys.one/en/https-ssl-proxy/'
         self.post_data = 'xpp=5&xf1=1&xf4=0&xf5=0'
 
@@ -173,6 +174,6 @@ class SpysHTTPS(SpysOne):
 class SpysSOCKS(SpysOne):
 
     def __init__(self):
-        super(SpysSOCKS, self).__init__('spys-one-socks')
+        super(SpysSOCKS, self).__init__('spys-one-socks', ProxyProtocol.SOCKS5)
         self.base_url = 'https://spys.one/en/socks-proxy-list/'
         self.post_data = 'xpp=5&xf1=0&xf2=0&xf4=0&xf5=0'

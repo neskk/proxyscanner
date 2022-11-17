@@ -5,6 +5,7 @@ import logging
 
 from bs4 import BeautifulSoup
 
+from ..models import ProxyProtocol
 from ..proxy_scrapper import ProxyScrapper
 
 log = logging.getLogger(__name__)
@@ -13,7 +14,7 @@ log = logging.getLogger(__name__)
 class Socksproxy(ProxyScrapper):
 
     def __init__(self):
-        super(Socksproxy, self).__init__('socksproxy-net')
+        super(Socksproxy, self).__init__('socksproxy-net', ProxyProtocol.SOCKS5)
         self.base_url = 'https://www.socks-proxy.net/'
 
     def scrap(self):

@@ -7,6 +7,7 @@ import time
 
 from bs4 import BeautifulSoup
 
+from ..models import ProxyProtocol
 from ..proxy_scrapper import ProxyScrapper
 
 log = logging.getLogger(__name__)
@@ -17,7 +18,7 @@ log = logging.getLogger(__name__)
 class Idcloak(ProxyScrapper):
 
     def __init__(self):
-        super(Idcloak, self).__init__('idcloak-com')
+        super(Idcloak, self).__init__('idcloak-com', ProxyProtocol.HTTP)
         self.base_url = 'http://www.idcloak.com/proxylist/proxy-list.html'
         raise RuntimeError('IdClock.com is offline.')
 

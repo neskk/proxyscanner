@@ -6,6 +6,7 @@ import re
 
 from bs4 import BeautifulSoup
 
+from ..models import ProxyProtocol
 from ..proxy_scrapper import ProxyScrapper
 
 log = logging.getLogger(__name__)
@@ -13,8 +14,8 @@ log = logging.getLogger(__name__)
 
 class OpenProxySpace(ProxyScrapper):
 
-    def __init__(self, name):
-        super(OpenProxySpace, self).__init__(name)
+    def __init__(self, name, protocol):
+        super(OpenProxySpace, self).__init__(name, protocol)
         self.base_url = 'https://openproxy.space/list'
 
     def scrap(self):
@@ -65,19 +66,19 @@ class OpenProxySpace(ProxyScrapper):
 class OpenProxyHTTP(OpenProxySpace):
 
     def __init__(self):
-        super(OpenProxyHTTP, self).__init__('open-proxy-space-http')
+        super(OpenProxyHTTP, self).__init__('open-proxy-space-http', ProxyProtocol.HTTP)
         self.base_url = 'https://openproxy.space/list/http/'
 
 
 class OpenProxySOCKS4(OpenProxySpace):
 
     def __init__(self):
-        super(OpenProxySOCKS4, self).__init__('open-proxy-space-socks4')
+        super(OpenProxySOCKS4, self).__init__('open-proxy-space-socks4', ProxyProtocol.SOCKS4)
         self.base_url = 'https://openproxy.space/list/socks4'
 
 
 class OpenProxySOCKS5(OpenProxySpace):
 
     def __init__(self):
-        super(OpenProxySOCKS5, self).__init__('open-proxy-space-socks5')
+        super(OpenProxySOCKS5, self).__init__('open-proxy-space-socks5', ProxyProtocol.SOCKS5)
         self.base_url = 'https://openproxy.space/list/socks5'

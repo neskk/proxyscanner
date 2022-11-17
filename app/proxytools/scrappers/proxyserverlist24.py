@@ -5,6 +5,7 @@ import logging
 
 from bs4 import BeautifulSoup
 
+from ..models import ProxyProtocol
 from ..proxy_scrapper import ProxyScrapper
 
 log = logging.getLogger(__name__)
@@ -13,7 +14,7 @@ log = logging.getLogger(__name__)
 class Proxyserverlist24(ProxyScrapper):
 
     def __init__(self):
-        super(Proxyserverlist24, self).__init__('proxyserverlist24-top')
+        super(Proxyserverlist24, self).__init__('proxyserverlist24-top', ProxyProtocol.HTTP)
         self.base_url = 'http://www.proxyserverlist24.top/'
         raise RuntimeError('proxyserverlist24.top is offline.')
 

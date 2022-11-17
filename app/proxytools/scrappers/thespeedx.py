@@ -3,6 +3,8 @@
 
 import logging
 
+
+from ..models import ProxyProtocol
 from ..proxy_scrapper import ProxyScrapper
 from ..utils import load_file
 
@@ -14,8 +16,8 @@ log = logging.getLogger(__name__)
 
 
 class TheSpeedX(ProxyScrapper):
-    def __init__(self, name):
-        super(TheSpeedX, self).__init__(name)
+    def __init__(self, name, protocol):
+        super(TheSpeedX, self).__init__(name, protocol)
         self.base_url = 'https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/'
 
     def download_proxylist(self, url):
@@ -41,19 +43,19 @@ class TheSpeedX(ProxyScrapper):
 class TheSpeedXHTTP(TheSpeedX):
 
     def __init__(self):
-        super(TheSpeedXHTTP, self).__init__('the-speed-x-http')
+        super(TheSpeedXHTTP, self).__init__('the-speed-x-http', ProxyProtocol.HTTP)
         self.base_url += 'http.txt'
 
 
 class TheSpeedXSOCKS4(TheSpeedX):
 
     def __init__(self):
-        super(TheSpeedXSOCKS4, self).__init__('the-speed-x-socks4')
+        super(TheSpeedXSOCKS4, self).__init__('the-speed-x-socks4', ProxyProtocol.SOCKS4)
         self.base_url += 'socks4.txt'
 
 
 class TheSpeedXSOCKS5(TheSpeedX):
 
     def __init__(self):
-        super(TheSpeedXSOCKS5, self).__init__('the-speed-x-socks5')
+        super(TheSpeedXSOCKS5, self).__init__('the-speed-x-socks5', ProxyProtocol.SOCKS5)
         self.base_url += 'socks5.txt'

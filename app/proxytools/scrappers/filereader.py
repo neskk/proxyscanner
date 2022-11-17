@@ -17,6 +17,10 @@ class FileReader(ProxyScrapper):
         self.proxy_file = self.args.proxy_file
 
     def scrap(self):
+        proxylist = []
+        if not self.proxy_file:
+            return proxylist
+
         proxylist = load_file(self.proxy_file)
         log.info('Read %d proxies from file: %s',
                  len(proxylist), self.proxy_file)

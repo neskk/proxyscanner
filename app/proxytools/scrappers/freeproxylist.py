@@ -5,6 +5,7 @@ import logging
 
 from bs4 import BeautifulSoup
 
+from ..models import ProxyProtocol
 from ..proxy_scrapper import ProxyScrapper
 
 log = logging.getLogger(__name__)
@@ -13,7 +14,7 @@ log = logging.getLogger(__name__)
 class Freeproxylist(ProxyScrapper):
 
     def __init__(self):
-        super(Freeproxylist, self).__init__('freeproxylist-net')
+        super(Freeproxylist, self).__init__('freeproxylist-net', ProxyProtocol.HTTP)
         self.base_url = 'https://free-proxy-list.net'
 
     def scrap(self):

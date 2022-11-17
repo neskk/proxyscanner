@@ -3,6 +3,7 @@
 
 import logging
 
+from ..models import ProxyProtocol
 from ..proxy_scrapper import ProxyScrapper
 from ..utils import load_file
 
@@ -15,8 +16,8 @@ log = logging.getLogger(__name__)
 
 class ProxyScrape(ProxyScrapper):
 
-    def __init__(self, name):
-        super(ProxyScrape, self).__init__(name)
+    def __init__(self, name, protocol):
+        super(ProxyScrape, self).__init__(name, protocol)
         self.base_url = 'https://api.proxyscrape.com/?request=getproxies'
 
     def download_proxylist(self, url):
@@ -42,19 +43,19 @@ class ProxyScrape(ProxyScrapper):
 class ProxyScrapeHTTP(ProxyScrape):
 
     def __init__(self):
-        super(ProxyScrapeHTTP, self).__init__('proxy-scrape-http')
+        super(ProxyScrapeHTTP, self).__init__('proxy-scrape-http', ProxyProtocol.HTTP)
         self.base_url += '&proxytype=http&timeout=10000&country=all&ssl=all&anonymity=anonymous'
 
 
 class ProxyScrapeSOCKS4(ProxyScrape):
 
     def __init__(self):
-        super(ProxyScrapeSOCKS4, self).__init__('proxy-scrape-socks4')
+        super(ProxyScrapeSOCKS4, self).__init__('proxy-scrape-socks4', ProxyProtocol.SOCKS4)
         self.base_url += '&proxytype=socks4&timeout=10000&country=all'
 
 
 class ProxyScrapeSOCKS5(ProxyScrape):
 
     def __init__(self):
-        super(ProxyScrapeSOCKS5, self).__init__('proxy-scrape-socks5')
+        super(ProxyScrapeSOCKS5, self).__init__('proxy-scrape-socks5', ProxyProtocol.SOCKS5)
         self.base_url += '&proxytype=socks5&timeout=10000&country=all'

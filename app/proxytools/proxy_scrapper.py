@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import logging
+from threading import Thread
 import requests
 
 from abc import ABC, abstractmethod
@@ -9,19 +10,22 @@ from urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 
 from .config import Config
+from .models import Proxy, ProxyProtocol
 from .user_agent import UserAgent
-from .utils import export_file, http_headers
+from .utils import export_file, http_headers, validate_ip
 
 log = logging.getLogger(__name__)
 
 
-class ProxyScrapper(ABC):
+class ProxyScrapper(ABC, Thread):
 
     STATUS_FORCELIST = [500, 502, 503, 504]
 
-    def __init__(self, name):
-        super().__init__()
+    def __init__(self, name, protocol=None):
+        ABC.__init__(self)
+        Thread.__init__(self, name=name, daemon=False)
         args = Config.get_args()
+        self.args = args
 
         self.timeout = args.scrapper_timeout
         self.proxy = args.scrapper_proxy
@@ -30,6 +34,7 @@ class ProxyScrapper(ABC):
         self.download_path = args.download_path
 
         self.name = name
+        self.protocol = protocol
         self.user_agent = UserAgent.generate(args.user_agent)
         self.session = None
         self.retries = Retry(
@@ -39,9 +44,15 @@ class ProxyScrapper(ABC):
 
         log.info('Initialized proxy scrapper: %s.', name)
 
+    def get_name(self):
+        return self.name
+
+    def get_protocol(self):
+        return self.protocol
+
     def setup_session(self):
         self.session = requests.Session()
-        # Mount handler on both HTTP & HTTPS.
+        # Mount handler on both HTTP & HTTPS
         self.session.mount('http://', HTTPAdapter(max_retries=self.retries))
         self.session.mount('https://', HTTPAdapter(max_retries=self.retries))
 
@@ -50,7 +61,7 @@ class ProxyScrapper(ABC):
     def request_url(self, url, referer=None, post={}, json=False):
         content = None
         try:
-            # Setup request headers.
+            # Setup request headers
             headers = http_headers()
             headers['User-Agent'] = self.user_agent
             headers['Referer'] = referer or 'https://www.google.com'
@@ -84,7 +95,7 @@ class ProxyScrapper(ABC):
     def download_file(self, url, filename, referer=None):
         result = False
         try:
-            # Setup request headers.
+            # Setup request headers
             headers = http_headers(keep_alive=True)
             headers['User-Agent'] = self.user_agent
             headers['Referer'] = referer or 'https://www.google.com'
@@ -122,6 +133,91 @@ class ProxyScrapper(ABC):
                 valid = False
                 break
         return valid
+
+    def parse_proxy(self, line: str) -> dict:
+        proxy = {
+            'ip': None,
+            'port': None,
+            'protocol': self.protocol,
+            'username': None,
+            'password': None
+        }
+
+        # Check and separate protocol from proxy address
+        if '://' in line:
+            pieces = line.split('://')
+            line = pieces[1]
+            if pieces[0] == 'http':
+                proxy['protocol'] = ProxyProtocol.HTTP
+            elif pieces[0] == 'socks4':
+                proxy['protocol'] = ProxyProtocol.SOCKS4
+            elif pieces[0] == 'socks5':
+                proxy['protocol'] = ProxyProtocol.SOCKS5
+            else:
+                raise ValueError(f'Unknown proxy protocol in: {line}')
+
+        if proxy['protocol'] is None:
+            raise ValueError(f'Proxy protocol is not set for: {line}')
+
+        # Check and separate authentication from proxy address
+        if '@' in line:
+            pieces = line.split('@')
+            if ':' not in pieces[0]:
+                raise ValueError(f'Unknown authentication format in: {line}')
+            auth = pieces[0].split(':')
+
+            proxy['username'] = auth[0]
+            proxy['password'] = auth[1]
+            line = pieces[1]
+
+        # Check and separate IP and port from proxy address
+        if ':' not in line:
+            raise ValueError(f'Proxy address port not specified in: {line}')
+
+        pieces = line.split(':')
+
+        if not validate_ip(pieces[0]):
+            raise ValueError(f'IP address is not valid in: {line}')
+
+        proxy['ip'] = pieces[0]
+        proxy['port'] = pieces[1]
+
+        return proxy
+
+    def parse_proxylist(self, proxylist: list) -> list:
+        """
+        Parse proxy URL strings into dictionaries with model attributes.
+
+        Args:
+            proxylist (list): list of proxy URL strings to parse
+
+        Returns:
+            list: Proxy model dictionaries
+        """
+        result = []
+
+        for line in proxylist:
+            line = line.strip()
+            if len(line) < 9:
+                log.debug('Invalid proxy address: %s', line)
+                continue
+            try:
+                proxy_dict = self.parse_proxy(line)
+                result.append(proxy_dict)
+            except ValueError as e:
+                log.error(e)
+
+        log.info('%s successfully parsed %d proxies.', self.name, len(result))
+        return result
+
+    def run(self):
+        try:
+            proxylist = self.scrap()
+            log.info('%s scrapped a total of %d proxies.', self.name, len(proxylist))
+            proxylist = self.parse_proxylist(proxylist)
+            Proxy.insert_bulk(proxylist)
+        except Exception as e:
+            log.exception('%s proxy scrapper failed: %s', self.name, e)
 
     @abstractmethod
     def scrap(self) -> list:

@@ -8,6 +8,7 @@ import time
 
 from bs4 import BeautifulSoup
 
+from ..models import ProxyProtocol
 from ..packer import deobfuscate
 from ..proxy_scrapper import ProxyScrapper
 
@@ -20,7 +21,7 @@ log = logging.getLogger(__name__)
 class Premproxy(ProxyScrapper):
 
     def __init__(self):
-        super(Premproxy, self).__init__('premproxy-com')
+        super(Premproxy, self).__init__('premproxy-com', ProxyProtocol.HTTP)
         self.base_url = 'https://premproxy.com'
 
     def scrap(self):
