@@ -11,7 +11,7 @@ import sys
 from .models import ProxyProtocol
 
 CWD = os.path.dirname(os.path.realpath(__file__))
-APP_PATH = os.path.realpath(os.path.join(CWD, "../"))
+APP_PATH = os.path.realpath(os.path.join(CWD, '..'))
 
 
 class Config:
@@ -34,6 +34,7 @@ class Config:
             self.__check_config()
 
     def __check_config(self):
+        """ Validate configuration values """
         # if not self.__args.proxy_file and not self.__args.proxy_scrap:
         #     raise RuntimeError('You must supply a proxylist file or enable scrapping!')
 
@@ -97,10 +98,9 @@ class EnumAction(configargparse.Action):
 
 def get_args():
     default_config = []
-    app_path = os.path.normpath(
-        os.path.join(os.path.dirname(__file__), '..'))
+
     config_file = os.path.normpath(
-        os.path.join(app_path, 'config/config.ini'))
+        os.path.join(APP_PATH, 'config/config.ini'))
 
     if '-cf' not in sys.argv and '--config' not in sys.argv:
         default_config = [config_file]
@@ -257,7 +257,7 @@ def get_args():
                        action='store_true')
     group.add_argument('-Tpv', '--tester-pogo-version',
                        help='PoGo API version currently required by Niantic.',
-                       default='0.247.1')
+                       default='0.253.1')
 
     group = parser.add_argument_group('Proxy Scrapper')
     group.add_argument('-Sr', '--scrapper-retries',
@@ -283,6 +283,9 @@ def get_args():
 
     if args.verbose:
         parser.print_values()
+
+    # Helper attributes
+    setattr(args, "app_path", APP_PATH)
 
     return args
 
