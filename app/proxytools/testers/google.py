@@ -55,6 +55,42 @@ class Google(Test):
         #     return True
         return False
 
+    def debug_response(self, response: Response):
+        if not self.args.verbose:
+            return
+
+        filename = f'{self.args.tmp_path}/google.txt'
+        info = '\n-----------------\n'
+        info += f'Tester Headers:   {self.headers}'
+        info += '\n-----------------\n'
+        info += f'Request Headers:  {response.request.headers}'
+        info += '\n-----------------\n'
+        info += f'Response Headers: {response.headers}'
+        info += '\n-----------------\n'
+        info += 'Response'
+        info += '\n-----------------\n'
+        info += response.text
+
+        export_file(filename, info)
+        log.debug('Response content saved to: %s', filename)
+
+    def validate(self):
+        response = self.__request(None)
+
+        if response.status_code != 200:
+            log.error('Failed validation request to: %s', self.base_url)
+            return False
+
+        proxy_test = ProxyTest(proxy=None, info='Google test')
+        self.__parse_response(proxy_test, response.text)
+
+        if proxy_test.status != ProxyStatus.OK:
+            log.error('Unable to validate response.')
+            self.debug_response(response)
+            return False
+
+        return True
+
     def run(self, proxy: Proxy) -> ProxyTest:
         """
         Request Google URL using a proxy and parse response.
@@ -86,20 +122,8 @@ class Google(Test):
                 log.warning('Response with bad status code: %s', response.status_code)
             else:
                 result = self.__parse_response(proxy_test, response.text)
-
-                # TODO: improve this debug
-                if not result and self.args.verbose:
-                    filename = f'{self.args.tmp_path}/google_{proxy.id}.txt'
-                    info = f'{proxy.id} - {proxy_url} - {proxy_test.info}\n'
-                    info += '\n-----------------\n'
-                    info += f'Tester Headers:   {self.headers}\n'
-                    info += '\n-----------------\n'
-                    info += f'Request Headers:  {response.request.headers}\n'
-                    info += '\n-----------------\n'
-                    info += f'Response Headers: {response.headers}\n'
-                    info += '\n-----------------\n\n'
-                    export_file(filename, info + response.text)
-                    log.debug('Response content saved to: %s', filename)
+                if not result:
+                    log.debug('Failed to parse response with: %s', proxy_url)
 
             response.close()
         except ConnectTimeout:

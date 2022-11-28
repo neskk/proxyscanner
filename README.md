@@ -57,8 +57,6 @@ We're not responsible for these proxies and we're not responsible for what users
 
 ## TODO
 - Cleanup queries - proxies stuck on testing status + old tests + old and bad proxies.
-- Register/Unregister mechanism for Scrappers on Parser.
-- Register/Unregister mechanism for Tests on Manager.
 - Add flask webserver for web interface/API development.
     - **This should replace file output.**
     - Consider importing files through web interface as well.
@@ -75,8 +73,8 @@ We're not responsible for these proxies and we're not responsible for what users
 ```
 usage: start.py [-h] [-cf CONFIG] [-v] [--log-path LOG_PATH] [--download-path DOWNLOAD_PATH] [--tmp-path TMP_PATH] [-pj PROXY_JUDGE] [-ua {random,chrome,firefox,safari}] --db-name DB_NAME --db-user DB_USER --db-pass DB_PASS [--db-host DB_HOST] [--db-port DB_PORT]
                 [-Pf PROXY_FILE] [-Ps] [-Pp {HTTP,SOCKS4,SOCKS5}] [-Pri PROXY_REFRESH_INTERVAL] [-Psi PROXY_SCAN_INTERVAL] [-Pic [PROXY_IGNORE_COUNTRY ...]] [-Oi OUTPUT_INTERVAL] [-Ol OUTPUT_LIMIT] [-Onp] [-Oh OUTPUT_HTTP] [-Os OUTPUT_SOCKS]
-                [-Okc OUTPUT_KINANCITY] [-Opc OUTPUT_PROXYCHAINS] [-Orm OUTPUT_ROCKETMAP] [-Mni MANAGER_NOTICE_INTERVAL] [-Mt MANAGER_TESTERS] [-Tr TESTER_RETRIES] [-Tbf TESTER_BACKOFF_FACTOR] [-Tt TESTER_TIMEOUT] [-Tda] [-Tpv TESTER_POGO_VERSION]
-                [-Sr SCRAPPER_RETRIES] [-Sbf SCRAPPER_BACKOFF_FACTOR] [-St SCRAPPER_TIMEOUT] [-Sp SCRAPPER_PROXY]
+                [-Okc OUTPUT_KINANCITY] [-Opc OUTPUT_PROXYCHAINS] [-Orm OUTPUT_ROCKETMAP] [-Mni MANAGER_NOTICE_INTERVAL] [-Mt MANAGER_TESTERS] [-Ta] [-Tp] [-Tr TESTER_RETRIES] [-Tbf TESTER_BACKOFF_FACTOR] [-Tt TESTER_TIMEOUT] [-Tf] [-Sr SCRAPPER_RETRIES]
+                [-Sbf SCRAPPER_BACKOFF_FACTOR] [-St SCRAPPER_TIMEOUT] [-Sp SCRAPPER_PROXY]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -135,6 +133,9 @@ Proxy Manager:
                         Print proxy manager statistics every X seconds. Default: 60.
   -Mt MANAGER_TESTERS, --manager-testers MANAGER_TESTERS
                         Maximum concurrent proxy testing threads. Default: 100.
+  -Ta, --test-anonymity
+                        Test if proxy preserves anonymity.
+  -Tp, --test-pogo      Test if proxy can connect with PoGo API.
 
 Proxy Tester:
   -Tr TESTER_RETRIES, --tester-retries TESTER_RETRIES
@@ -143,10 +144,7 @@ Proxy Tester:
                         Time factor (in seconds) by which the delay until next retry will increase. Default: 0.5.
   -Tt TESTER_TIMEOUT, --tester-timeout TESTER_TIMEOUT
                         Connection timeout in seconds. Default: 5.
-  -Tda, --tester-disable-anonymity
-                        Disable anonymity proxy test.
-  -Tpv TESTER_POGO_VERSION, --tester-pogo-version TESTER_POGO_VERSION
-                        PoGo API version currently required by Niantic.
+  -Tf, --tester-force   Continue test execution on proxy fail.
 
 Proxy Scrapper:
   -Sr SCRAPPER_RETRIES, --scrapper-retries SCRAPPER_RETRIES

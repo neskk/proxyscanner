@@ -40,3 +40,13 @@ class Test(ABC):
             ProxyTest: test results
         """
         pass
+
+    @abstractmethod
+    def validate(self) -> bool:
+        """
+        Perform tests without a proxy and return parsed results.
+
+        Returns:
+            bool: true if test is working, false otherwise
+        """
+        pass

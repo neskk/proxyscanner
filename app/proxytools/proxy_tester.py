@@ -34,7 +34,8 @@ class ProxyTester(Thread):
         self.manager = manager
         self.id = id
         self.args = Config.get_args()
-        self.protocols = []  # only test ProxyProtocol in list (none: all)
+        # Test only protocols in list (empty: all)
+        self.protocols = []  # list(ProxyProtocol)
         self.tests = []
         for test in self.manager.test_classes:
             try:
@@ -91,6 +92,7 @@ class ProxyTester(Thread):
             try:
                 proxy_test = test.run(proxy)
                 if not proxy_test:
+                    log.debug('Failed proxy test: %s', test)
                     continue
 
                 # Update proxy status with results from the last executed test
@@ -98,7 +100,7 @@ class ProxyTester(Thread):
                     self.__update(proxy, proxy_test)
 
                 # Stop if proxy fails a test
-                if proxy_test.status != ProxyStatus.OK:
+                if not self.args.tester_force and proxy_test.status != ProxyStatus.OK:
                     break
 
             except Exception:

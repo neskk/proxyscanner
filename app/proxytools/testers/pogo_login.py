@@ -16,12 +16,27 @@ from ..utils import export_file
 log = logging.getLogger(__name__)
 
 
-class AZenv(Test):
+class PoGoLogin(Test):
 
     STATUS_BANLIST = [403, 409]
 
+    USER_AGENT = 'pokemongo/0 CFNetwork/897.1 Darwin/17.5.0'
+    UNITY_VERSION = '2017.1.2f1'
+
+    POGO_HEADERS = {
+        'Connection': 'close',
+        'Accept': '*/*',
+        'User-Agent': USER_AGENT,
+        'Accept-Language': 'en-us',
+        'Accept-Encoding': 'br, gzip, deflate',
+        'X-Unity-Version': UNITY_VERSION,
+    }
+
     def __init__(self, manager):
         super().__init__(manager)
+        self.base_url = ('https://sso.pokemon.com/sso/login?service='
+                         'https%3A%2F%2Fsso.pokemon.com%2Fsso%2Foauth2.0%2F'
+                         'callbackAuthorize&locale=en_US')
 
         # https://urllib3.readthedocs.io/en/stable/reference/urllib3.util.html
         self.urlib3_retry = urllib3.Retry(
@@ -41,10 +56,10 @@ class AZenv(Test):
 
     def __request(self, proxy_url: str) -> Response:
         response = self.__session(proxy_url).get(
-            self.args.proxy_judge,
+            self.base_url,
             headers=self.headers,
             timeout=self.args.tester_timeout,
-            verify=False)  # ignore SSL errors
+            verify=True)
 
         return response
 
@@ -57,7 +72,7 @@ class AZenv(Test):
         if not self.args.verbose:
             return
 
-        filename = f'{self.args.tmp_path}/azenv.txt'
+        filename = f'{self.args.tmp_path}/pogo_login.txt'
         info = '\n-----------------\n'
         info += f'Tester Headers:   {self.headers}'
         info += '\n-----------------\n'
@@ -79,8 +94,10 @@ class AZenv(Test):
             log.error('Failed validation request to: %s', self.base_url)
             return False
 
-        headers = self.__parse_response(response.text)
-        if not headers.get('REMOTE_ADDR') or not headers.get('USER_AGENT'):
+        proxy_test = ProxyTest(proxy=None, info='PoGo-Login test')
+        self.__parse_response(proxy_test, response)
+
+        if proxy_test.status != ProxyStatus.OK:
             log.error('Unable to validate response.')
             self.debug_response(response)
             return False
@@ -89,7 +106,7 @@ class AZenv(Test):
 
     def run(self, proxy: Proxy) -> ProxyTest:
         """
-        Request proxy judge AZenv URL using a proxy and parse response.
+        Request PoGo-Login URL using a proxy and parse response.
 
         Args:
             proxy (Proxy): proxy being tested
@@ -99,10 +116,10 @@ class AZenv(Test):
         """
         proxy_url = proxy.url()
         if self.__skip_test(proxy):
-            log.debug('Skipped AZenv test for proxy: %s', proxy_url)
+            log.debug('Skipped PoGo-Login test for proxy: %s', proxy_url)
             return None
 
-        proxy_test = ProxyTest(proxy=proxy, info='AZenv test')
+        proxy_test = ProxyTest(proxy=proxy, info='PoGo-Login test')
         try:
             response = self.__request(proxy_url)
 
@@ -112,17 +129,17 @@ class AZenv(Test):
                 proxy_test.status = ProxyStatus.BANNED
                 proxy_test.info = 'Banned status code'
                 log.warning('Proxy seems to be banned.')
-            elif not response.text:
+            if not response.text:
                 proxy_test.status = ProxyStatus.ERROR
                 proxy_test.info = 'Empty response'
                 log.warning('No content in response.')
+
             elif response.status_code != 200:
                 proxy_test.status = ProxyStatus.ERROR
                 proxy_test.info = f'Bad status code: {response.status_code}'
                 log.warning('Response with bad status code: %s', response.status_code)
             else:
-                headers = self.__parse_response(response.text)
-                result = self.__analyze_headers(proxy_test, headers)
+                result = self.__parse_response(proxy_test, response)
                 if not result:
                     log.debug('Failed to parse response with: %s', proxy_url)
 
@@ -145,67 +162,22 @@ class AZenv(Test):
         proxy_test.save()
         return proxy_test
 
-    def __parse_response(self, content: str) -> dict:
+    def __parse_response(self, proxy_test: ProxyTest, response: Response) -> bool:
         """
-        Parse AZenv response content for useful HTTP headers.
+        Parse PoGo-Login response content.
 
         Args:
             content (str): response text content
 
         Returns:
-            dict: header values found in content
+            bool: true if valid content is found, false otherwise
         """
-        result = {}
-        keywords = [
-            'REMOTE_ADDR',
-            'USER_AGENT',
-            'FORWARDED_FOR',
-            'FORWARDED',
-            'CLIENT_IP',
-            'X_FORWARDED_FOR',
-            'X_FORWARDED',
-            'X_CLUSTER_CLIENT_IP']
+        json = response.json()
+        # { "lt": "LT-34571919-WbnEHMLcdTP7SHsNWZhveQU4ZQKsq9", "execution": "e5s1" }
 
-        for line in content.split('\n'):
-            line_upper = line.upper()
-            for keyword in keywords:
-                if keyword in line_upper:
-                    result[keyword] = line.split('=')[1].strip()
-                    break  # jump to next line
-
-        return result
-
-    def __analyze_headers(self, proxy_test: ProxyTest, headers: dict) -> bool:
-        """
-        Check header values for current local IP.
-        Update proxy test based on parsed HTTP headers.
-
-        Args:
-            proxy_test (ProxyTest): proxy test model being updated
-            headers (dict): parsed headers from response
-
-        Returns:
-            bool: True if analysis is successful, False otherwise (debug info)
-        """
-        result = True
-        if not headers:
-            proxy_test.status = ProxyStatus.ERROR
-            proxy_test.info = 'Error parsing response'
-            return False
-
-        # search for local IP
-        for value in headers.values():
-            if self.local_ip in value:
-                proxy_test.status = ProxyStatus.ERROR
-                proxy_test.info = 'Non-anonymous proxy'
-                return False
-
-        if headers.get('USER_AGENT') != self.user_agent:
-            proxy_test.status = ProxyStatus.ERROR
-            proxy_test.info = 'Bad user-agent'
-            result = False
-        else:
+        if json.get('lt') and json.get('execution'):
             proxy_test.status = ProxyStatus.OK
-            proxy_test.info = 'Anonymous proxy'
+            proxy_test.info = 'Access to PoGo-Login'
+            return True
 
-        return result
+        return False

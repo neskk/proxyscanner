@@ -54,6 +54,9 @@ class SOCKSVersion(Test):
             return True
         return False
 
+    def validate(self):
+        return True
+
     def run(self, proxy: Proxy) -> ProxyTest:
         """
         Check SOCKS protocol version using a socket.
@@ -76,7 +79,7 @@ class SOCKSVersion(Test):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.settimeout(self.args.tester_timeout)
         try:
-            s.connect((proxy.ip, proxy.port)) 
+            s.connect((proxy.ip, proxy.port))
             if self.__test_socks4(proxy.ip, proxy.port, s):
                 proxy.protocol = ProxyProtocol.SOCKS4
             elif self.__test_socks5(proxy.ip, proxy.port, s):

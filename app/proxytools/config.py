@@ -160,7 +160,6 @@ def get_args():
                        default=None)
     group.add_argument('-Ps', '--proxy-scrap',
                        help='Scrap webpages for proxy lists.',
-                       default=False,
                        action='store_true')
     group.add_argument('-Pp', '--proxy-protocol',
                        help='Specify proxy protocol we are testing.',
@@ -196,7 +195,6 @@ def get_args():
                        type=int)
     group.add_argument('-Onp', '--output-no-protocol',
                        help='Proxy URL format will not include protocol.',
-                       default=False,
                        action='store_true')
     group.add_argument('-Oh', '--output-http',
                        help=('Output filename for working HTTP proxies. '
@@ -235,6 +233,12 @@ def get_args():
                              'Default: 100.'),
                        default=100,
                        type=int)
+    group.add_argument('-Ta', '--test-anonymity',
+                       help='Test if proxy preserves anonymity.',
+                       action='store_true')
+    group.add_argument('-Tp', '--test-pogo',
+                       help='Test if proxy can connect with PoGo API.',
+                       action='store_true')
 
     group = parser.add_argument_group('Proxy Tester')
     group.add_argument('-Tr', '--tester-retries',
@@ -251,13 +255,9 @@ def get_args():
                        help='Connection timeout in seconds. Default: 5.',
                        default=5,
                        type=float_seconds)
-    group.add_argument('-Tda', '--tester-disable-anonymity',
-                       help='Disable anonymity proxy test.',
-                       default=False,
+    group.add_argument('-Tf', '--tester-force',
+                       help='Continue test execution on proxy fail.',
                        action='store_true')
-    group.add_argument('-Tpv', '--tester-pogo-version',
-                       help='PoGo API version currently required by Niantic.',
-                       default='0.253.1')
 
     group = parser.add_argument_group('Proxy Scrapper')
     group.add_argument('-Sr', '--scrapper-retries',
