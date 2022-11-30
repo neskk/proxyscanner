@@ -27,6 +27,7 @@ services:
     ports:
       - 5000:5000
     #restart: always
+    stop_grace_period: 1m
     environment:
       MYSQL_HOST: db
       MYSQL_PORT: 3306
