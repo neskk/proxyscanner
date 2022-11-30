@@ -65,6 +65,10 @@ def configure_logging(log, verbosity=0, output_path='logs', output_name='-app'):
         logging.getLogger('urllib3').setLevel(logging.ERROR)
 
 
+def sigterm_handler(_signo, _stack_frame):
+    sys.exit(0)
+
+
 def load_file(filename):
     lines = []
 

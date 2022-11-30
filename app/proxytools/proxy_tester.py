@@ -103,6 +103,10 @@ class ProxyTester(Thread):
                 if not self.args.tester_force and proxy_test.status != ProxyStatus.OK:
                     break
 
+                # Check if work is interrupted
+                if self.manager.interrupt.is_set():
+                    break
+
             except Exception:
                 log.exception('Error executing test: %s', test)
 

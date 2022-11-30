@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import logging
+import signal
 import sys
 import time
 
@@ -67,10 +68,14 @@ class App:
         # Fetch and insert new proxies from configured sources.
         self.parser.load_proxylist()
 
+        # Handle SIGTERM gracefully
+        signal.signal(signal.SIGTERM, utils.sigterm_handler)
+
     def __work(self):
         refresh_timer = default_timer()
         output_timer = default_timer()
         errors = 0
+
         while True:
             now = default_timer()
             if now > refresh_timer + self.args.proxy_refresh_interval:
