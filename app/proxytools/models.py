@@ -506,10 +506,10 @@ def init_database(db_name, db_host, db_port, db_user, db_pass):
     try:
         verify_database_schema()
         verify_table_encoding(db_name)
+        return db
     except Exception as e:
         log.exception('Failed to verify database schema: %s', e)
         sys.exit(1)
-    return db
 
 
 def create_tables():

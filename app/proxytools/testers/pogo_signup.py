@@ -59,7 +59,7 @@ class PoGoSignup(Test):
         if not self.args.verbose:
             return
 
-        filename = f'{self.args.tmp_path}/pogo_signup.txt'
+        filename = f'{self.args.download_path}/pogo_signup.txt'
         info = '\n-----------------\n'
         info += f'Tester Headers:   {self.headers}'
         info += '\n-----------------\n'

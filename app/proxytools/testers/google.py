@@ -59,7 +59,7 @@ class Google(Test):
         if not self.args.verbose:
             return
 
-        filename = f'{self.args.tmp_path}/google.txt'
+        filename = f'{self.args.download_path}/google.txt'
         info = '\n-----------------\n'
         info += f'Tester Headers:   {self.headers}'
         info += '\n-----------------\n'

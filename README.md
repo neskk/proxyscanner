@@ -71,10 +71,10 @@ We're not responsible for these proxies and we're not responsible for what users
 ## Usage
 
 ```
-usage: start.py [-h] [-cf CONFIG] [-v] [--log-path LOG_PATH] [--download-path DOWNLOAD_PATH] [--tmp-path TMP_PATH] [-pj PROXY_JUDGE] [-ua {random,chrome,firefox,safari}] --db-name DB_NAME --db-user DB_USER --db-pass DB_PASS [--db-host DB_HOST] [--db-port DB_PORT]
+usage: start.py [-h] [-cf CONFIG] [-v] [--log-path LOG_PATH] [--download-path DOWNLOAD_PATH] [-pj PROXY_JUDGE] [-ua {random,chrome,firefox,safari}] --db-name DB_NAME --db-user DB_USER --db-pass DB_PASS [--db-host DB_HOST] [--db-port DB_PORT]
                 [-Pf PROXY_FILE] [-Ps] [-Pp {HTTP,SOCKS4,SOCKS5}] [-Pri PROXY_REFRESH_INTERVAL] [-Psi PROXY_SCAN_INTERVAL] [-Pic [PROXY_IGNORE_COUNTRY ...]] [-Oi OUTPUT_INTERVAL] [-Ol OUTPUT_LIMIT] [-Onp] [-Oh OUTPUT_HTTP] [-Os OUTPUT_SOCKS]
-                [-Okc OUTPUT_KINANCITY] [-Opc OUTPUT_PROXYCHAINS] [-Orm OUTPUT_ROCKETMAP] [-Mni MANAGER_NOTICE_INTERVAL] [-Mt MANAGER_TESTERS] [-Ta] [-Tp] [-Tr TESTER_RETRIES] [-Tbf TESTER_BACKOFF_FACTOR] [-Tt TESTER_TIMEOUT] [-Tf] [-Sr SCRAPPER_RETRIES]
-                [-Sbf SCRAPPER_BACKOFF_FACTOR] [-St SCRAPPER_TIMEOUT] [-Sp SCRAPPER_PROXY]
+                [-Okc OUTPUT_KINANCITY] [-Opc OUTPUT_PROXYCHAINS] [-Orm OUTPUT_ROCKETMAP] [-Mni MANAGER_NOTICE_INTERVAL] [-Mt MANAGER_TESTERS] [-Ta] [-Tp] [-Tr TESTER_RETRIES] [-Tbf TESTER_BACKOFF_FACTOR] [-Tt TESTER_TIMEOUT] [-Tf]
+                [-Sr SCRAPPER_RETRIES] [-Sbf SCRAPPER_BACKOFF_FACTOR] [-St SCRAPPER_TIMEOUT] [-Sp SCRAPPER_PROXY]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -84,7 +84,6 @@ optional arguments:
   --log-path LOG_PATH   Directory where log files are saved.
   --download-path DOWNLOAD_PATH
                         Directory where downloaded files are saved.
-  --tmp-path TMP_PATH   Directory where temporary files are saved.
   -pj PROXY_JUDGE, --proxy-judge PROXY_JUDGE
                         URL for AZenv script used to test proxies.
   -ua {random,chrome,firefox,safari}, --user-agent {random,chrome,firefox,safari}
@@ -160,6 +159,15 @@ Args that start with '--' (eg. -v) can also be set in a config file (app\config\
 If an arg is specified in more than one place, then commandline values override environment variables which override config file values which override defaults.
 ```
 
+## Docker
+
+- Run containers: `docker-compose up`
+- Stop containers: `docker-compose down`
+
+### Database volume
+
+- The database container stores its data in a volume to be reused.
+- Delete volumes: `docker-compose down --volumes`
 
 ## Debugging with VS Code while using Docker containers
 
