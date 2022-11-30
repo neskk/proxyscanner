@@ -18,7 +18,7 @@ services:
       - ./my.cnf:/etc/mysql/conf.d/custom.cnf
 
   app:
-    image: proxyscanner
+    image: proxyscanner:latest
     build:
       context: .
       dockerfile: ./Dockerfile
