@@ -43,7 +43,7 @@ This software allows scrapping of public proxies and only provides access to the
 We're not responsible for these proxies and we're not responsible for what users do with them.
 
 ## Requirements
-- Python 3.4+
+- Python 3.7+
 - MySQL 5.7+
 - beautifulsoup4==4.9.0
 - configargparse==1.2.3
