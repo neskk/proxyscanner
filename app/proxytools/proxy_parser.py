@@ -50,10 +50,10 @@ class ProxyParser():
             scrapper = scrapper_cls()
         except RuntimeError as e:
             log.debug(e)
-        self.scrappers[scrapper.get_name()] = scrapper
+        self.scrappers[scrapper.name] = scrapper
 
     def unregister_scrapper(self, scrapper: ProxyScrapper):
-        self.scrappers.pop(scrapper.get_name(), None)
+        self.scrappers.pop(scrapper.name, None)
 
     def load_proxylist(self):
         if not self.scrappers:

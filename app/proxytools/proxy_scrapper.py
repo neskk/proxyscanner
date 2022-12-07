@@ -44,9 +44,6 @@ class ProxyScrapper(ABC, Thread):
 
         log.info('Initialized proxy scrapper: %s.', name)
 
-    def get_name(self):
-        return self.name
-
     def get_protocol(self):
         return self.protocol
 
