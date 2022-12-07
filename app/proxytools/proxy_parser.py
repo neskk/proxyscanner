@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import logging
-import time
 
 from .config import Config
 from .proxy_scrapper import ProxyScrapper

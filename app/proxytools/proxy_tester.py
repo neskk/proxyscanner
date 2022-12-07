@@ -90,6 +90,10 @@ class ProxyTester(Thread):
 
         for test in self.tests:
             try:
+                if test.skip_test(proxy):
+                    log.debug('Skipped %s test for proxy: %s', test.name, proxy.url())
+                    continue
+
                 proxy_test = test.run(proxy)
                 if not proxy_test:
                     log.debug('Failed proxy test: %s', test)
