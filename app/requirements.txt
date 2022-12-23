@@ -1,9 +1,10 @@
 configargparse==1.5.3
+flask==2.2.2
 pymysql==1.0.2
-peewee==3.14.8
+peewee==3.15.4
 pysocks==1.7.1
-requests==2.26.0
-beautifulsoup4==4.10.0
+requests==2.28.1
+beautifulsoup4==4.11.1
 ip2location==8.6.4
 pycountry==22.3.5
-#jsbeautifier==1.14.0
+#jsbeautifier==1.14.7
