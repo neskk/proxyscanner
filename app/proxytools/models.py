@@ -127,8 +127,8 @@ class Proxy(BaseModel):
         )
 
     def test_score(self) -> float:
-        """ Success percentage """
-        return 1.0 - self.fail_count / self.test_count
+        """ Success rate """
+        return (1.0 - self.fail_count / self.test_count) * 100
 
     def url(self, no_protocol=False) -> str:
         """

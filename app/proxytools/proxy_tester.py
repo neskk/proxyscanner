@@ -130,11 +130,16 @@ class ProxyTester(Thread):
             country = self.manager.ip2location.lookup_country(proxy.ip)
             proxy.country = country
 
+        proxy.test_count += 1
+        if proxy_test.status != ProxyStatus.OK:
+            self.manager.mark_fail()
+            proxy.fail_count += 1
+        else:
+            self.manager.mark_success()
+
         proxy.save()
         proxy.database().close()
 
-        log.debug(f'{proxy_test.info}: {proxy.url()} ({proxy.latency}ms - {proxy.country})')
-        if proxy_test.status != ProxyStatus.OK:
-            self.manager.mark_fail()
-        else:
-            self.manager.mark_success()
+        log.debug(f'{proxy_test.info}: {proxy.url()} '
+                  f'({proxy.latency}ms - {proxy.country}) - '
+                  f'{proxy.test_score():.2f}% ({proxy.test_count} tests)')
