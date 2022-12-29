@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block title %} Sample Page {% endblock %}
+{% block meta %}
+{% include "meta.html" %}
+{% endblock %}
+{% block content %}
+<h3>Request Header Information:</h3>
+<ul>
+  {# https://jinja.palletsprojects.com/en/3.0.x/templates/#whitespace-control #}
+  {%- for header in data %}
+    <li>{{ header }}</li>
+  {%- endfor -%}
+  </ul>
+{% endblock %}

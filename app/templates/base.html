@@ -1,0 +1,29 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>{% block title %}{% endblock %}</title>
+
+  {% block meta %}{% endblock %}
+  <link rel="icon" href="images/favicon.ico">
+  <link rel="icon" href="images/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="images/favicon-16x16.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="images/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="images/android-chrome-192x192.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="images/android-chrome-512x512.png">
+
+  <link rel="stylesheet" href="css/styles.css?v=1.0">
+</head>
+
+<body>
+  <img src="{{url_for('static', filename='images/flask-logo.png')}}" alt="Flask Logo"/>
+  <div id="content">
+    {% block content %}{% endblock %}
+  </div>
+  <script src="js/scripts.js"></script>
+</body>
+</html>

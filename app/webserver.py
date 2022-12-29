@@ -1,10 +1,10 @@
-from flask import Flask, Response, request, render_template, jsonify, send_file
+from flask import Flask, Response, request, abort, render_template, jsonify, send_file
 import logging
 import sys
 
-from flask_app import utils
-from flask_app.config import Config
-from flask_app.models import init_database
+from proxytools.config import Config
+from proxytools.models import init_database, ProxyProtocol, ProxyStatus, Proxy, ProxyTest
+from proxytools.utils import configure_logging
 
 log = logging.getLogger(__name__)
 
@@ -13,6 +13,7 @@ app = Flask(__name__,
             static_url_path='',
             static_folder='static',
             template_folder='templates')
+args = None
 db = None
 
 
@@ -33,10 +34,43 @@ def index():
     return render_template('page.html', data=request.headers)
 
 
-@app.route('/get_data.json')
-def get_data():
-    data = db.query('')
-    return jsonify(data)
+@app.route('/proxylist')
+def proxylist():
+    protocol = request.args.get('protocol', None)
+    limit = request.args.get('limit', 100)
+    max_age = request.args.get('max_age', 3600)
+
+    if protocol == "http":
+        protocol = ProxyProtocol.HTTP
+    elif protocol == "socks4":
+        protocol = ProxyProtocol.SOCKS4
+    elif protocol == "socks5":
+        protocol = ProxyProtocol.SOCKS5
+    else:
+        protocol = None
+
+    query = Proxy.get_valid(
+        limit,
+        max_age,
+        protocol)
+    data = query.execute()
+    no_protocol = False
+    proxylist = [proxy.url(no_protocol) for proxy in data]
+
+    return jsonify(proxylist)
+
+
+@app.route('/proxy/<id>')
+def proxy(id):
+
+    if not id:
+        abort(400)
+
+    proxy = Proxy.get(id)
+    if not proxy:
+        abort(400)
+
+    return jsonify(proxy.test_score())
 
 
 @app.route('/get_image')
@@ -44,20 +78,6 @@ def get_image():
     filepath = db.query('')
 
     return send_file(filepath, mimetype='image/jpeg')
-
-
-def check_configuration(args):
-    if args.max_concurrency <= 0:
-        log.error('Max concurrency argument must be higher than 0.')
-        sys.exit(1)
-
-    if args.notice_interval <= 0:
-        log.error('Notice interval must be higher than 0.')
-        sys.exit(1)
-
-    if args.protocol == 'all':
-        # faster performance
-        args.protocol = None
 
 
 def cleanup():
@@ -68,9 +88,14 @@ def cleanup():
 if __name__ == '__main__':
     try:
         args = Config.get_args()
-        utils.configure_logging(args, log)
+        configure_logging(log, args.verbose, args.log_path, "-webserver")
+
         db = init_database(
-            args.db_name, args.db_host, args.db_port, args.db_user, args.db_pass)
+            args.db_name,
+            args.db_host,
+            args.db_port,
+            args.db_user,
+            args.db_pass)
 
         log.info('Starting up...')
         # Note: Flask reloader runs two processes
