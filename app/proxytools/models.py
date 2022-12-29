@@ -272,7 +272,7 @@ class Proxy(BaseModel):
         """
         min_age = datetime.utcnow() - timedelta(seconds=age_secs)
         conditions = (
-            (Proxy.modified < min_age) &
+            (Proxy.modified > min_age) &
             (Proxy.status != ProxyStatus.TESTING))
 
         if protocol is not None:
@@ -348,7 +348,7 @@ class Proxy(BaseModel):
     @staticmethod
     def delete_failed(age_days=14) -> ModelDelete:
         """
-        Delete old proxies with no success tests. and respective tests.
+        Delete old proxies with no success tests.
 
         Args:
             age_days (int, optional): Minimum proxy age. Defaults to 14 days.
@@ -372,7 +372,7 @@ class Proxy(BaseModel):
     @staticmethod
     def delete_old(age_days=365) -> ModelDelete:
         """
-        Delete old proxies and respective tests.
+        Delete old proxies and their respective tests.
 
         Args:
             age_days (int, optional): Maximum proxy age. Defaults to 365 days.
