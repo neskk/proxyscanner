@@ -31,7 +31,16 @@ def after_request(response):
 # Flask webserver routes
 @app.route('/')
 def index():
-    return render_template('page.html', data=request.headers)
+    stats = {
+        'Proxy count': Proxy.select().count(),
+        'Test count': ProxyTest.select().count(),
+    }
+    return render_template('page.html', data=stats)
+
+
+@app.route('/azenv')
+def azenv():
+    return render_template('azenv.html', data=request.headers)
 
 
 @app.route('/proxylist')

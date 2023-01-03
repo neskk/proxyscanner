@@ -9,7 +9,6 @@
 
   {% block meta %}{% endblock %}
   <link rel="icon" href="images/favicon.ico">
-  <link rel="icon" href="images/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="16x16" href="images/favicon-16x16.png">
   <link rel="icon" type="image/png" sizes="32x32" href="images/favicon-32x32.png">
@@ -20,7 +19,7 @@
 </head>
 
 <body>
-  <img src="{{url_for('static', filename='images/flask-logo.png')}}" alt="Flask Logo"/>
+  <img src="{{url_for('static', filename='images/logo.png')}}" alt="Flask Logo"/>
   <div id="content">
     {% block content %}{% endblock %}
   </div>
