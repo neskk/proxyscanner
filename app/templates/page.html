@@ -5,11 +5,17 @@
 {% include "meta.html" %}
 {% endblock %}
 {% block content %}
-<h3>Statistiscs</h3>
-<ul>
+<h3>Statistics</h3>
+<div class="container">
   {# https://jinja.palletsprojects.com/en/3.0.x/templates/#whitespace-control #}
   {%- for key,value in data.items() %}
-    <li>{{ key }}: {{ value }}</li>
+  <div class="row">
+    <div class="col-sm-2">
+      {{ key }}
+    </div>
+    <div class="col-sm-10">
+      {{ value }}
+    </div>
   {%- endfor -%}
-  </ul>
+</div>
 {% endblock %}
