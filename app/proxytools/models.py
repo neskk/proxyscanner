@@ -5,7 +5,7 @@ import logging
 import sys
 
 from peewee import (
-    DatabaseProxy, fn, OperationalError, IntegrityError,
+    DatabaseProxy, fn, OperationalError, IntegrityError, JOIN,
     Model, ModelSelect, ModelUpdate, ModelDelete,
     ForeignKeyField, BigAutoField, DateTimeField, CharField,
     IntegerField, BigIntegerField, SmallIntegerField, IPField)
@@ -244,6 +244,13 @@ class Proxy(BaseModel):
         return query.execute()
 
     def latest_test(self):
+        query = (ProxyTest
+                 .select()
+                 .where(ProxyTest.proxy == self.id)
+                 .order_by(ProxyTest.id.desc()))
+        return query.first()
+
+    def latest_test_id(self):
         """ Retrieve the latest test ID performed. """
         query = (ProxyTest
                  .select(fn.MAX(ProxyTest.id))
@@ -251,6 +258,14 @@ class Proxy(BaseModel):
         return query
 
     def oldest_test(self):
+        """ Retrieve the oldest test performed. """
+        query = (ProxyTest
+                 .select()
+                 .where(ProxyTest.proxy == self.id)
+                 .order_by(ProxyTest.id.asc()))
+        return query.first()
+
+    def oldest_test_id(self):
         """ Retrieve the oldest test ID performed. """
         query = (ProxyTest
                  .select(fn.MIN(ProxyTest.id))
@@ -258,7 +273,7 @@ class Proxy(BaseModel):
         return query
 
     @staticmethod
-    def get_valid(limit=1000, age_secs=3600, protocol=None):
+    def get_valid(limit=1000, age_secs=3600, protocol=None, exclude_countries=[]):
         """
         Get a list of valid proxies tested recently.
 
@@ -275,8 +290,11 @@ class Proxy(BaseModel):
             (Proxy.modified > min_age) &
             (Proxy.status != ProxyStatus.TESTING))
 
-        if protocol is not None:
+        if protocol:
             conditions &= (Proxy.protocol == protocol)
+
+        if exclude_countries:
+            conditions &= (Proxy.country.not_in(exclude_countries))
 
         query = (Proxy
                  .select()
@@ -345,62 +363,74 @@ class Proxy(BaseModel):
 
         return query
 
-    @staticmethod
-    def delete_failed(age_days=14) -> ModelDelete:
+    def get_failed(age_days=14, test_count=20, fail_days=7, fail_count=10) -> ModelDelete:
         """
-        Delete old proxies with no success tests.
+        Select old proxies with no success tests.
 
         Args:
             age_days (int, optional): Minimum proxy age. Defaults to 14 days.
+            test_count (int, optional): Minimum number of attempts made. Defaults to 20.
+            fail_days (int, optional): Period of testing to analyse. Defaults to 7 days.
+            fail_count (int, optional): Minimum number of failures during period. Defaults to 10.
 
         Returns:
             query: Delete query
         """
         min_age = datetime.utcnow() - timedelta(days=age_days)
+        fail_age = datetime.utcnow() - timedelta(days=fail_days)
+
         conditions = (
-            (Proxy.test_count > 30) &
-            ((Proxy.test_count - Proxy.fail_count) == 0) &
             (Proxy.created < min_age) &
-            (Proxy.status != ProxyStatus.TESTING))
+            (Proxy.test_count > test_count) &
+            (ProxyTest.created < fail_age) &
+            (ProxyTest.status != ProxyStatus.OK))
 
         query = (Proxy
-                 .delete()
-                 .where(conditions))
+                 .select(Proxy, fn.Count(ProxyTest.id).alias('count'))
+                 .join(ProxyTest, JOIN.LEFT_OUTER)
+                 .where(conditions)
+                 .group_by(Proxy)
+                 .having(fn.Count(ProxyTest.id) > fail_count))
 
         return query
 
     @staticmethod
-    def delete_old(age_days=365) -> ModelDelete:
+    def delete_failed(fail_days=7, fail_count=10, age_days=14, test_count=20) -> ModelDelete:
         """
-        Delete old proxies and their respective tests.
+        Delete old proxies with no success tests.
 
         Args:
-            age_days (int, optional): Maximum proxy age. Defaults to 365 days.
+            fail_days (int, optional): Period of testing to analyse. Defaults to 7 days.
+            fail_count (int, optional): Minimum number of failures during period. Defaults to 10.
+            age_days (int, optional): Minimum proxy age. Defaults to 14 days.
+            test_count (int, optional): Minimum number of attempts made. Defaults to 20.
 
         Returns:
             query: Delete query
         """
-        max_age = datetime.utcnow() - timedelta(days=age_days)
-        conditions = (Proxy.modified < max_age)
+        fail_age = datetime.utcnow() - timedelta(days=fail_days)
+        min_age = datetime.utcnow() - timedelta(days=age_days)
+
+        conditions = (
+            (ProxyTest.created > fail_age) &
+            (ProxyTest.status != ProxyStatus.OK))
+
+        subquery = (ProxyTest
+                    .select(ProxyTest.proxy)
+                    .where(conditions)
+                    .group_by(ProxyTest.proxy)
+                    .having(fn.Count(ProxyTest.id) > fail_count))
+
+        conditions = (
+            (Proxy.created < min_age) &
+            (Proxy.test_count > test_count) &
+            (Proxy.id << subquery))
 
         query = (Proxy
                  .delete()
                  .where(conditions))
 
         return query
-        """
-        rows = 0
-        try:
-            with db:
-                query = (Proxy
-                         .delete()
-                         .where(Proxy.fail_count >= 5))
-                rows = query.execute()
-        except OperationalError as e:
-            log.exception('Failed to delete failed proxies: %s', e)
-
-        log.info('Deleted %d failed proxies from database.', rows)
-        """
 
 
 class ProxyTest(BaseModel):

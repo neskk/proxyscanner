@@ -144,29 +144,24 @@ def populate_data(proxy_count=1000, test_count=250000):
 
 
 @timeit
-def query_valid():
-    q = Proxy.valid()
+def query_valid(limit=1000, output=False):
+    q = Proxy.get_valid(limit)
     log.debug(q.sql())
-    l = [m for m in Proxy.valid().dicts()]
-    log.debug(f'Proxy.valid executed in {(timer()-t_start):.3f}s')
-    pprint(l)
+    l = [m for m in q.dicts()]
+    if output:
+        pprint(l)
 
 
-def query_count_test_status(age_secs=3600, exclude_ids=[], statuses=[]):
-    t_start = timer()
-    l = [m for m in ProxyTest.max_age(age_secs, exclude_ids).dicts()]
-    log.debug(f'Proxy.max_age executed in {(timer()-t_start):.3f}s')
-    pprint(l)
+@timeit
+def query_latest_test(proxy: Proxy):
+    q = proxy.latest_test()
+    pprint(q)
 
-    t_start = timer()
-    l = [m for m in ProxyTest.max_agex(age_secs*24, exclude_ids, statuses).dicts()]
-    log.debug(f'Proxy.max_agex executed in {(timer()-t_start):.3f}s')
-    pprint(l)
 
-    t_start = timer()
-    l = [m for m in ProxyTest.min_agex(age_secs, exclude_ids).limit(100).dicts()]
-    log.debug(f'Proxy.min_agex executed in {(timer()-t_start):.3f}s')
-    pprint(l)
+@timeit
+def query_oldest_test(proxy: Proxy):
+    q = proxy.oldest_test()
+    pprint(q)
 
 
 if __name__ == '__main__':

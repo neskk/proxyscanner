@@ -57,6 +57,8 @@ We're not responsible for these proxies and we're not responsible for what users
 
 ## TODO
 - Cleanup queries - proxies stuck on testing status + old tests + old and bad proxies.
+- Separate class to handle output of proxylists.
+- Separate class to query and feed proxies to be tested/scanned.
 - Add flask webserver for web interface/API development.
     - **This should replace file output.**
     - Consider importing files through web interface as well.
