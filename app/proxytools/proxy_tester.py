@@ -86,8 +86,7 @@ class ProxyTester(Thread):
         log.debug(f'{self.name} shutdown.')
 
     def __execute_tests(self, proxy: Proxy):
-        proxy_test = None
-
+        results = []
         for test in self.tests:
             try:
                 if test.skip_test(proxy):
@@ -101,7 +100,8 @@ class ProxyTester(Thread):
 
                 # Update proxy status with results from the last executed test
                 if proxy_test:
-                    self.__update(proxy, proxy_test)
+                    results.append(proxy_test)
+                    self.__stats(proxy, proxy_test)
 
                 # Stop if proxy fails a test
                 if not self.args.tester_force and proxy_test.status != ProxyStatus.OK:
@@ -114,21 +114,23 @@ class ProxyTester(Thread):
             except Exception:
                 log.exception('Error executing test: %s', test)
 
-    def __update(self, proxy: Proxy, proxy_test: ProxyTest) -> None:
+        # Update proxy status with results from executed tests
+        if not results:
+            results.append(ProxyTest(
+                proxy=proxy,
+                info='Not tested',
+                status=ProxyStatus.ERROR))
+
+        self.__update(proxy, results)
+
+    def __stats(self, proxy: Proxy, proxy_test: ProxyTest) -> None:
         """
-        Update proxy and notify manager with test results.
+        Notify manager with test results.
 
         Args:
             proxy (Proxy): proxy being tested
             proxy_test (ProxyTest): test results
         """
-        proxy.status = proxy_test.status
-        proxy.latency = proxy_test.latency
-        proxy.modified = datetime.utcnow()
-
-        if proxy.country is None:
-            country = self.manager.ip2location.lookup_country(proxy.ip)
-            proxy.country = country
 
         proxy.test_count += 1
         if proxy_test.status != ProxyStatus.OK:
@@ -137,9 +139,28 @@ class ProxyTester(Thread):
         else:
             self.manager.mark_success()
 
+    def __update(self, proxy: Proxy, results: list) -> None:
+        """
+        Update proxy with test results.
+
+        Args:
+            proxy (Proxy): proxy being tested
+            results (list(ProxyTest)): proxy test results
+        """
+        proxy_test = results[-1]
+
+        proxy.status = proxy_test.status
+        proxy.latency = proxy_test.latency
+        proxy.modified = datetime.utcnow()
+
+        if proxy.country is None:
+            country = self.manager.ip2location.lookup_country(proxy.ip)
+            proxy.country = country
+
         proxy.save()
         proxy.database().close()
 
-        log.debug(f'{proxy_test.info}: {proxy.url()} '
+        log.debug(f'Updated Proxy #{proxy.id} - '
+                  f'{proxy_test.info}: {proxy.url()} - '
                   f'({proxy.latency}ms - {proxy.country}) - '
                   f'{proxy.test_score():.2f}% ({proxy.test_count} tests)')
