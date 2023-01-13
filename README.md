@@ -171,6 +171,15 @@ If an arg is specified in more than one place, then commandline values override 
 - The database container stores its data in a volume to be reused.
 - Delete volumes: `docker-compose down --volumes`
 
+### Backup proxyscanner database
+
+1. Dump database
+`docker exec proxyscanner-db-1 sh -c 'exec mysqldump -uroot -p"rootpassword" proxyscanner' > proxyscanner.sql`
+
+2. Change its encoding to ANSI
+3. Zip, send to server, unzip.
+4. Import dump file: `mysql -uroot -p"rootpassword" proxyscanner < proxyscanner.sql`
+
 ## Debugging with VS Code while using Docker containers
 
 1. Launch the containers with the task: `up-debug`
