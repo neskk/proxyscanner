@@ -12,6 +12,7 @@ from requests.packages import urllib3
 
 from .ip2location import IP2LocationDatabase
 from .config import Config
+from .models import get_connection_stats
 from .proxy_tester import ProxyTester
 from .testers.azenv import AZenv
 from .testers.google import Google
@@ -150,14 +151,18 @@ class TestManager():
         """
         notice_timer = default_timer()
         while True:
+            db_stats = get_connection_stats()
             now = default_timer()
-            # Print statistics regularly.
+
+            # Print statistics regularly
             if now >= notice_timer + self.args.manager_notice_interval:
-                log.info('Tested a total of %d good and %d bad proxies.',
+                log.info('Total tests: %d valid and %d failed.',
                          self.total_success, self.total_fail)
-                log.info('Tested %d good and %d bad proxies in last %ds.',
-                         self.notice_success, self.notice_fail,
-                         self.args.manager_notice_interval)
+                log.info('Tests in last %ds: %d valid and %d failed.',
+                         self.args.manager_notice_interval,
+                         self.notice_success, self.notice_fail)
+                log.debug('Database connections: %d in use and %d available.',
+                          db_stats[0], db_stats[1])
 
                 notice_timer = now
                 self.reset_notice_stats()

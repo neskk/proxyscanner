@@ -288,7 +288,7 @@ class Proxy(BaseModel):
         min_age = datetime.utcnow() - timedelta(seconds=age_secs)
         conditions = (
             (Proxy.modified > min_age) &
-            (Proxy.status != ProxyStatus.TESTING))
+            (Proxy.status == ProxyStatus.OK))
 
         if protocol:
             conditions &= (Proxy.protocol == protocol)
@@ -395,7 +395,8 @@ class Proxy(BaseModel):
         return query
 
     @staticmethod
-    def delete_failed(fail_days=7, fail_count=3, age_days=14, test_count=20, fail_rate=0.9) -> ModelDelete:
+    def delete_failed(fail_days=7, fail_count=3,
+                      age_days=14, test_count=20, fail_rate=0.9) -> ModelDelete:
         """
         Delete old proxies with no success tests.
 
@@ -410,29 +411,43 @@ class Proxy(BaseModel):
             query: Delete query
         """
         fail_age = datetime.utcnow() - timedelta(days=fail_days)
+        min_test_age = datetime.utcnow() - timedelta(minutes=30)
         min_age = datetime.utcnow() - timedelta(days=age_days)
 
         conditions = (
             (ProxyTest.created > fail_age) &
+            (ProxyTest.created < min_test_age) &
             (ProxyTest.status != ProxyStatus.OK))
 
+        count = 0
         subquery = (ProxyTest
                     .select(ProxyTest.proxy)
                     .where(conditions)
                     .group_by(ProxyTest.proxy)
                     .having(fn.Count(ProxyTest.id) > fail_count))
+        log.info(subquery.sql())
+        proxy_ids = [p for p in subquery.execute()]
 
-        conditions = (
-            (Proxy.created < min_age) &
-            (Proxy.test_count > test_count) &
-            (Proxy.fail_count / Proxy.test_count > fail_rate) &
-            (Proxy.id << subquery))
+        log.info('Found %d bad proxies for deletion.', len(proxy_ids))
+        with db.atomic():
+            for idx in range(0, len(proxy_ids), db_step):
+                batch = proxy_ids[idx:idx + db_step]
 
-        query = (Proxy
-                 .delete()
-                 .where(conditions))
+                conditions = (
+                    (Proxy.created < min_age) &
+                    (Proxy.test_count > test_count) &
+                    (Proxy.fail_count / Proxy.test_count > fail_rate) &
+                    (Proxy.id << batch))
 
-        return query
+                query = (Proxy
+                         .delete()
+                         .where(conditions)
+                         .limit(db_step))
+                if query.execute():
+                    count += len(batch)
+
+        log.info('Deleted %d proxies without a succesful test.', count)
+        return count
 
 
 class ProxyTest(BaseModel):
@@ -660,3 +675,13 @@ def verify_table_encoding(db_name):
                     COLLATE utf8mb4_unicode_ci;''' % str(table[0])
                 db.execute_sql(cmd_sql)
             db.execute_sql('SET FOREIGN_KEY_CHECKS=1;')
+
+
+def get_connection_stats():
+    """
+    Number of database connections being used.
+
+    Returns:
+        tuple: (# in use, # of available)
+    """
+    return (len(db._in_use), len(db._connections))

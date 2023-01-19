@@ -95,13 +95,12 @@ class ProxyTester(Thread):
 
                 proxy_test = test.run(proxy)
                 if not proxy_test:
-                    log.debug('Failed proxy test: %s', test)
+                    log.error('Proxy test %s returned no results.', test.__name__)
                     continue
 
                 # Update proxy status with results from the last executed test
-                if proxy_test:
-                    results.append(proxy_test)
-                    self.__stats(proxy, proxy_test)
+                results.append(proxy_test)
+                self.__stats(proxy, proxy_test)
 
                 # Stop if proxy fails a test
                 if not self.args.tester_force and proxy_test.status != ProxyStatus.OK:
@@ -110,9 +109,10 @@ class ProxyTester(Thread):
                 # Check if work is interrupted
                 if self.manager.interrupt.is_set():
                     break
-
             except Exception:
-                log.exception('Error executing test: %s', test)
+                log.exception('Error executing test: %s', test.__name__)
+                self.manager.interrupt.set()
+                break
 
         # Update proxy status with results from executed tests
         if not results:

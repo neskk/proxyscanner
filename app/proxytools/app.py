@@ -50,7 +50,6 @@ class App:
             sys.exit()
 
     def __launch(self):
-
         # Validate proxy tester benchmark responses.
         if self.manager.validate_responses():
             log.info('Test manager response validation was successful.')
@@ -77,12 +76,14 @@ class App:
         errors = 0
 
         while True:
+            if self.manager.interrupt.is_set():
+                sys.exit(1)
+
             now = default_timer()
             if now > refresh_timer + self.args.proxy_refresh_interval:
                 refresh_timer = now
                 log.info('Refreshing proxylists from configured sources.')
                 self.parser.load_proxylist()
-
                 # Unlock proxies stuck in testing.
                 query = Proxy.unlock_stuck()
                 rows = query.execute()
@@ -90,8 +91,6 @@ class App:
 
                 # Remove failed proxies from database.
                 query = Proxy.delete_failed()
-                rows = query.execute()
-                log.info('Deleted %d proxies without a succesful test.', rows)
 
                 # Validate proxy tester benchmark responses.
                 if not self.manager.validate_responses():
