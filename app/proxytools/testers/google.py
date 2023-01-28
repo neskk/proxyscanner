@@ -89,6 +89,7 @@ class Google(Test):
 
         # Save test results
         proxy_test.save()
+        proxy_test.database().close()
         return proxy_test
 
     def parse_response(self, proxy_test: ProxyTest, content: str) -> dict:
