@@ -13,6 +13,8 @@ app = Flask(__name__,
             static_url_path='',
             static_folder='static',
             template_folder='templates')
+
+app.config['JSON_SORT_KEYS'] = False
 args = None
 db = None
 
@@ -43,30 +45,62 @@ def azenv():
     return render_template('azenv.html', data=request.headers)
 
 
-@app.route('/proxylist')
-def proxylist():
+@app.route('/proxydata')
+def proxydata():
     protocol = request.args.get('protocol', None)
-    limit = request.args.get('limit', 100)
-    max_age = request.args.get('max_age', 3600)
+    limit = int(request.args.get('limit', 100))
+    max_age = int(request.args.get('max_age', 3600))
+    exclude_countries = request.args.get('exclude_countries', [])
 
-    if protocol == "http":
-        protocol = ProxyProtocol.HTTP
-    elif protocol == "socks4":
-        protocol = ProxyProtocol.SOCKS4
-    elif protocol == "socks5":
-        protocol = ProxyProtocol.SOCKS5
-    else:
-        protocol = None
+    if limit > 1000:
+        limit = 1000
+    if max_age > 86400:
+        max_age = 86400
+
+    if protocol:
+        protocol = ProxyProtocol[protocol.upper()]
+
+    if exclude_countries:
+        exclude_countries = exclude_countries.split(',')
 
     query = Proxy.get_valid(
         limit,
         max_age,
-        protocol)
-    data = query.execute()
-    no_protocol = False
-    proxylist = [proxy.url(no_protocol) for proxy in data]
+        protocol,
+        exclude_countries)
 
-    return jsonify(proxylist)
+    data = [proxy.data() for proxy in query.execute()]
+
+    return jsonify(data)
+
+
+@app.route('/proxylist')
+def proxylist():
+    protocol = request.args.get('protocol', None)
+    limit = int(request.args.get('limit', 100))
+    max_age = int(request.args.get('max_age', 3600))
+    exclude_countries = request.args.get('exclude_countries', [])
+
+    if limit > 1000:
+        limit = 1000
+    if max_age > 86400:
+        max_age = 86400
+
+    if protocol:
+        protocol = ProxyProtocol[protocol.upper()]
+
+    if exclude_countries:
+        exclude_countries = exclude_countries.split(',')
+
+    query = Proxy.get_valid(
+        limit,
+        max_age,
+        protocol,
+        exclude_countries)
+
+    data = [proxy.url() for proxy in query.execute()]
+
+    return jsonify(data)
 
 
 @app.route('/proxy/<id>')

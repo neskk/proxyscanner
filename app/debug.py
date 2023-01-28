@@ -164,6 +164,12 @@ def query_oldest_test(proxy: Proxy):
     pprint(q)
 
 
+@timeit
+def query_delete_failed():
+    q = Proxy.delete_failed()
+    pprint(q)
+
+
 if __name__ == '__main__':
     args = Config.get_args()
     configure_logging(log, args.verbose, args.log_path, "-debug")

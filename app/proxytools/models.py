@@ -130,6 +130,25 @@ class Proxy(BaseModel):
         """ Success rate """
         return (1.0 - self.fail_count / self.test_count) * 100
 
+    def data(self) -> dict:
+        return {
+            'id': self.id,
+            'url': self.url(),
+            'ip': self.ip,
+            'port': self.port,
+            'protocol': ProxyProtocol(self.protocol).name,
+            'username': self.username,
+            'password': self.password,
+            'status': ProxyStatus(self.status).name,
+            'latency': self.latency,
+            'test_count': self.test_count,
+            'fail_count': self.fail_count,
+            'score': self.test_score(),
+            'country': self.country,
+            'created': self.created,
+            'modified': self.modified,
+        }
+
     def url(self, no_protocol=False) -> str:
         """
         Build a URL string from proxy data.
@@ -419,19 +438,21 @@ class Proxy(BaseModel):
             (ProxyTest.created < min_test_age) &
             (ProxyTest.status != ProxyStatus.OK))
 
-        count = 0
         subquery = (ProxyTest
                     .select(ProxyTest.proxy)
                     .where(conditions)
                     .group_by(ProxyTest.proxy)
                     .having(fn.Count(ProxyTest.id) > fail_count))
-        log.info(subquery.sql())
-        proxy_ids = [p for p in subquery.execute()]
+        proxy_ids = [p.proxy_id for p in subquery.execute()]
 
-        log.info('Found %d bad proxies for deletion.', len(proxy_ids))
-        with db.atomic():
-            for idx in range(0, len(proxy_ids), db_step):
-                batch = proxy_ids[idx:idx + db_step]
+        count = 0
+        for idx in range(0, len(proxy_ids), db_step):
+            batch = proxy_ids[idx:idx + db_step]
+            with db.atomic():
+                # subquery = (ProxyTest
+                #             .delete()
+                #             .where(ProxyTest.proxy << batch))
+                # subcount += subquery.execute()
 
                 conditions = (
                     (Proxy.created < min_age) &
@@ -441,10 +462,9 @@ class Proxy(BaseModel):
 
                 query = (Proxy
                          .delete()
-                         .where(conditions)
-                         .limit(db_step))
-                if query.execute():
-                    count += len(batch)
+                         .where(conditions))
+
+                count += query.execute()
 
         log.info('Deleted %d proxies without a succesful test.', count)
         return count

@@ -59,9 +59,12 @@ We're not responsible for these proxies and we're not responsible for what users
 - Cleanup queries - proxies stuck on testing status + old tests + old and bad proxies.
 - Separate class to handle output of proxylists.
 - Separate class to query and feed proxies to be tested/scanned.
-- Add flask webserver for web interface/API development.
+- Flask Webserver:
+    - Configuration to specify hostname and port to run Flask.
+    - Use endpoint as AZenv proxy judge.
+    - Add authentication support (Flask-Login)
     - **This should replace file output.**
-    - Consider importing files through web interface as well.
+    - Import files through web interface.
 - Check proxy reputation on blacklist/RBL sites (e.g: http://www.anti-abuse.org/, https://mxtoolbox.com/blacklists.aspx, https://tinycp.com/page/show/rbl-check)
 - Consider incremental sleep when testers are idle / reducing re-test cooldown period.
 - Scrapper database model to hold stats and general activity.
@@ -160,6 +163,11 @@ Proxy Scrapper:
 Args that start with '--' (eg. -v) can also be set in a config file (app\config\config.ini or specified via -cf). Config file syntax allows: key=value, flag=true, stuff=[a,b,c] (for details, see syntax at https://goo.gl/R74nmi).
 If an arg is specified in more than one place, then commandline values override environment variables which override config file values which override defaults.
 ```
+
+## Recommendations
+
+- Use a fast AZenv proxy judge.
+- Database should be able to handle `--manager-testers / 2` connections (e.g. -Mt 100 = 50 db connnections).
 
 ## Docker
 
