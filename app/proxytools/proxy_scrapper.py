@@ -85,7 +85,7 @@ class ProxyScrapper(ABC, Thread):
 
             response.close()
         except Exception as e:
-            log.exception('Failed to request URL "%s": %s', url, e)
+            log.error('Failed to request URL "%s": %s', url, e)
 
         return content
 
@@ -112,7 +112,7 @@ class ProxyScrapper(ABC, Thread):
 
             response.close()
         except Exception as e:
-            log.exception('Failed to download file "%s": %s.', url, e)
+            log.error('Failed to download file "%s": %s.', url, e)
 
         return result
 
