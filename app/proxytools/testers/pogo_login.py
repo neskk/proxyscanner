@@ -108,8 +108,8 @@ class PoGoLogin(Test):
             log.exception('Unexpected error: %s', e)
 
         # Save test results
-        proxy_test.save()
-        proxy_test.database().close()
+        self.save(proxy_test)
+
         return proxy_test
 
     def parse_response(self, proxy_test: ProxyTest, response: Response) -> bool:
