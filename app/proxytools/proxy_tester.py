@@ -167,7 +167,7 @@ class ProxyTester(Thread):
             return True
 
         log.debug(f'Deleted Proxy #{proxy.id} - '
-                  f'failed {fail_ratio():.2f}% ({fail_count} / {test_count}.')
+                  f'failed {fail_ratio*100:.2f}% ({fail_count} / {test_count}).')
 
         return True
 
