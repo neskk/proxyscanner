@@ -50,21 +50,21 @@ class App:
             sys.exit()
 
     def __launch(self):
-        # Validate proxy tester benchmark responses.
+        # Validate proxy tester benchmark responses
         if self.manager.validate_responses():
             log.info('Test manager response validation was successful.')
-            # Launch proxy tester threads.
+            # Launch proxy tester threads
             self.manager.start()
         else:
             log.critical('Test manager response validation failed.')
             sys.exit(1)
 
-        # Unlock proxies stuck in testing.
+        # Unlock proxies stuck in testing
         query = Proxy.unlock_stuck()
         rows = query.execute()
         log.info('Unlocked %d proxies stuck in testing.', rows)
 
-        # Fetch and insert new proxies from configured sources.
+        # Fetch and insert new proxies from configured sources
         self.parser.load_proxylist()
 
         # Handle SIGTERM gracefully
@@ -84,20 +84,19 @@ class App:
                 refresh_timer = now
                 log.info('Refreshing proxylists from configured sources.')
                 self.parser.load_proxylist()
-                # Unlock proxies stuck in testing.
+                # Unlock proxies stuck in testing
                 query = Proxy.unlock_stuck()
                 rows = query.execute()
                 log.info('Unlocked %d proxies stuck in testing.', rows)
 
-                # Remove failed proxies from database.
-                query = Proxy.delete_failed()
-
-                # Validate proxy tester benchmark responses.
+                # Validate proxy tester benchmark responses
                 if not self.manager.validate_responses():
                     log.critical('Proxy tester response validation failed.')
                     errors += 1
                     if errors > 2:
                         sys.exit(1)
+                else:
+                    errors = 0
 
             if now > output_timer + self.args.output_interval:
                 output_timer = now
