@@ -7,6 +7,7 @@ import time
 from datetime import datetime
 from threading import Thread
 
+from peewee import DatabaseError
 from playhouse.pool import MaxConnectionsExceeded
 
 from .models import Proxy, ProxyStatus, ProxyTest
@@ -56,25 +57,29 @@ class ProxyTester(Thread):
                 break
 
             try:
-                with Proxy.database().atomic():
-                    # Grab and lock proxy
-                    proxy = Proxy.get_for_scan(protocols=self.protocols)
+                # Grab and lock proxy
+                proxy = Proxy.get_for_scan(protocols=self.protocols)
 
-                    if proxy is None:
-                        log.debug('No proxy to test... Re-checking in 10sec.')
-                        # TODO: add config arg for sleep timer
-                        time.sleep(10)
-                        continue
+                if proxy is None:
+                    log.debug('No proxy to test... Re-checking in 10sec.')
+                    # TODO: add config arg for sleep timer
+                    time.sleep(10)
+                    continue
 
-                    row_count = proxy.lock_for_testing()
+                row_count = proxy.lock_for_testing()
 
                 if row_count != 1:
                     log.warning('Failed to acquire a proxy for testing.')
                     time.sleep(random.uniform(0.2, 0.4))
                     continue
-            except MaxConnectionsExceeded:
-                log.warning('Failed to acquire a database connection.')
-                time.sleep(random.uniform(0.2, 0.4))
+
+                # Check if proxy should be removed
+                if self.__cleanup(proxy):
+                    continue
+
+            except (DatabaseError, MaxConnectionsExceeded) as e:
+                log.warning('Failed to acquire a database connection: %s', e)
+                time.sleep(random.uniform(5.0, 15.0))
                 continue
 
             # Release database connection for test duration
@@ -88,6 +93,7 @@ class ProxyTester(Thread):
     def __execute_tests(self, proxy: Proxy):
         results = []
         for test in self.tests:
+            test_name = test.__class__.__name__
             try:
                 if test.skip_test(proxy):
                     log.debug('Skipped %s test for proxy: %s', test.name, proxy.url())
@@ -95,7 +101,7 @@ class ProxyTester(Thread):
 
                 proxy_test = test.run(proxy)
                 if not proxy_test:
-                    log.error('Proxy test %s returned no results.', test.__name__)
+                    log.error('Proxy test %s returned no results.', test_name)
                     continue
 
                 # Update proxy status with results from the last executed test
@@ -110,7 +116,7 @@ class ProxyTester(Thread):
                 if self.manager.interrupt.is_set():
                     break
             except Exception:
-                log.exception('Error executing test: %s', test.__name__)
+                log.exception('Error executing test: %s', test_name)
                 self.manager.interrupt.set()
                 break
 
@@ -139,6 +145,32 @@ class ProxyTester(Thread):
         else:
             self.manager.mark_success()
 
+    def __cleanup(self, proxy: Proxy) -> bool:
+        analysis_period = self.args.cleanup_period
+
+        # Check test count during cleanup period
+        test_count = ProxyTest.all_tests(proxy.id, age_days=analysis_period).count()
+        if test_count < self.args.cleanup_test_count:
+            return False
+
+        # Check fail ratio during cleanup period
+        fail_count = ProxyTest.failed_tests(proxy.id, age_days=analysis_period).count()
+        fail_ratio = fail_count / test_count
+        if fail_ratio < self.args.cleanup_fail_ratio:
+            return False
+
+        row_count = proxy.delete_instance()
+        proxy.database().close()
+
+        if row_count != 1:
+            log.warning(f'Failed to delete Proxy #{proxy.id}.')
+            return True
+
+        log.debug(f'Deleted Proxy #{proxy.id} - '
+                  f'failed {fail_ratio():.2f}% ({fail_count} / {test_count}.')
+
+        return True
+
     def __update(self, proxy: Proxy, results: list) -> None:
         """
         Update proxy with test results.
@@ -157,8 +189,12 @@ class ProxyTester(Thread):
             country = self.manager.ip2location.lookup_country(proxy.ip)
             proxy.country = country
 
-        proxy.save()
-        proxy.database().close()
+        try:
+            proxy.save()
+            proxy.database().close()
+        except Exception as e:
+            log.error(f'Failed to update Proxy #{proxy.id}: {e}')
+            return
 
         log.debug(f'Updated Proxy #{proxy.id} - '
                   f'{proxy_test.info}: {proxy.url()} - '

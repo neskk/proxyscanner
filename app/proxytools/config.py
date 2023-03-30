@@ -150,6 +150,23 @@ def get_args():
                        help='Port for the database.',
                        type=int, default=3306)
 
+    group = parser.add_argument_group('Cleanup')
+    group.add_argument('-Cp', '--cleanup-period',
+                       help=('Check tests executed in the last X days. '
+                             'Default: 14.'),
+                       default=14,
+                       type=int)
+    group.add_argument('-Ctc', '--cleanup-test-count',
+                       help=('Minimum number of tests to consider. '
+                             'Default: 30.'),
+                       default=30,
+                       type=int)
+    group.add_argument('-Cfr', '--cleanup-fail-ratio',
+                       help=('Maximum failure ratio of tests. '
+                             'Default: 1.'),
+                       default=1,
+                       type=float_ratio)
+
     group = parser.add_argument_group('Proxy Sources')
     group.add_argument('-Pf', '--proxy-file',
                        help='Filename of proxy list to verify.',
@@ -320,6 +337,18 @@ def float_seconds(arg: float):
         raise ValueError('Negative time interval specified!')
 
     return interval
+
+
+def float_ratio(arg: float):
+    ratio = float(arg)
+
+    if ratio < 0:
+        raise ValueError('Minimum percentage is 0.0!')
+
+    if ratio > 1:
+        raise ValueError('Maximum percentage is 1.0!')
+
+    return ratio
 
 
 def str_path(arg: str):

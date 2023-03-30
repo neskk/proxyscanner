@@ -6,7 +6,7 @@ import sys
 
 from peewee import (
     DatabaseProxy, fn, OperationalError, IntegrityError, JOIN,
-    Model, ModelSelect, ModelUpdate, ModelDelete,
+    Case, Model, ModelSelect, ModelUpdate, ModelDelete,
     ForeignKeyField, BigAutoField, DateTimeField, CharField,
     IntegerField, BigIntegerField, SmallIntegerField, IPField)
 from playhouse.pool import PooledMySQLDatabase
@@ -128,7 +128,9 @@ class Proxy(BaseModel):
 
     def test_score(self) -> float:
         """ Success rate """
-        return (1.0 - self.fail_count / self.test_count) * 100
+        if self.test_count:
+            return (1.0 - self.fail_count / self.test_count) * 100
+        return 0.0
 
     def data(self) -> dict:
         return {
@@ -258,6 +260,31 @@ class Proxy(BaseModel):
                  .where(conditions))
 
         return query.execute()
+
+    def test_stats(self, age_days=0) -> tuple:
+        """
+        Select total number of tests done and failed.
+
+        Args:
+            age_days (int, optional): Maximum test age. Defaults to 0 (all).
+
+        Returns:
+            tuple: test_count, fail_count
+        """
+        conditions = ((ProxyTest.proxy == self.id))
+
+        if age_days > 0:
+            max_age = datetime.utcnow() - timedelta(days=age_days)
+            conditions &= ((ProxyTest.created > max_age))
+
+        fail_count = fn.SUM(Case(None, [(ProxyTest.status == ProxyStatus.OK, 0)], 1))
+        query = (ProxyTest
+                 .select(
+                    fn.COUNT(ProxyTest.id),
+                    fail_count)
+                 .where(conditions))
+
+        return query.scalar(as_tuple=True)
 
     def latest_test(self):
         query = (ProxyTest
@@ -469,7 +496,7 @@ class Proxy(BaseModel):
 
 class ProxyTest(BaseModel):
     id = BigAutoField()
-    # Note: we use deferred FK because of circular reference in Proxy
+    # Note: we can use deferred FK if circular reference in Proxy
     proxy = ForeignKeyField(Proxy, backref='tests', on_delete='CASCADE')
     status = IntEnumField(ProxyStatus, index=True, default=ProxyStatus.UNKNOWN)
     latency = UIntegerField(index=True, default=0)
@@ -508,6 +535,39 @@ class ProxyTest(BaseModel):
         query = (ProxyTest
                  .select(fn.MIN(ProxyTest.id))
                  .where(ProxyTest.proxy == proxy_id))
+        return query
+
+    @staticmethod
+    def all_tests(proxy_id, age_days=14) -> ModelSelect:
+        """ Count the number of tests performed on `proxy_id`"""
+
+        max_age = datetime.utcnow() - timedelta(days=age_days)
+
+        conditions = (
+            (ProxyTest.proxy == proxy_id) &
+            (ProxyTest.created > max_age))
+
+        query = (ProxyTest
+                 .select()
+                 .where(conditions))
+
+        return query
+
+    @staticmethod
+    def failed_tests(proxy_id, age_days=14) -> ModelSelect:
+        """ Count the number of tests failed on `proxy_id`"""
+
+        max_age = datetime.utcnow() - timedelta(days=age_days)
+
+        conditions = (
+            (ProxyTest.proxy == proxy_id) &
+            (ProxyTest.created > max_age) &
+            (ProxyTest.status != ProxyStatus.OK))
+
+        query = (ProxyTest
+                 .select()
+                 .where(conditions))
+
         return query
 
     @staticmethod
@@ -553,6 +613,7 @@ def init_database(db_name, db_host, db_port, db_user, db_pass):
     """ Create a pooled connection to MySQL database """
     log.info('Connecting to MySQL database on %s:%i...', db_host, db_port)
 
+    # https://docs.peewee-orm.com/en/latest/peewee/playhouse.html#pool-apis
     database = PooledMySQLDatabase(
         db_name,
         user=db_user,
@@ -560,9 +621,9 @@ def init_database(db_name, db_host, db_port, db_user, db_pass):
         host=db_host,
         port=db_port,
         charset='utf8mb4',
-        max_connections=None,  # use None for unlimited
-        stale_timeout=60,
-        timeout=None)
+        max_connections=30,  # use None for unlimited
+        stale_timeout=10,
+        timeout=0)  # 0 blocks indefinitely
 
     # Initialize DatabaseProxy
     db.initialize(database)
