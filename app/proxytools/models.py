@@ -621,7 +621,7 @@ def init_database(db_name, db_host, db_port, db_user, db_pass):
         host=db_host,
         port=db_port,
         charset='utf8mb4',
-        max_connections=30,  # use None for unlimited
+        max_connections=20,  # use None for unlimited
         stale_timeout=10,
         timeout=0)  # 0 blocks indefinitely
 
