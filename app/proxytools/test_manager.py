@@ -119,23 +119,20 @@ class TestManager():
             self.notice_fail = 0
 
     def start(self):
-        # Start proxy manager thread.
+        # Start test manager thread
         self.manager = Thread(
             name='test-manager',
             target=self.__test_manager,
             daemon=False)
         self.manager.start()
 
+    def start_testers(self):
         self.tester_threads = []
 
-        # Start proxy tester threads.
         for id in range(self.args.manager_testers):
             tester = ProxyTester(id, self)
-
             self.tester_threads.append(tester)
-
             tester.start()
-            time.sleep(0.1)
 
     def stop(self):
         self.interrupt.set()
@@ -149,9 +146,12 @@ class TestManager():
         """
         Manager main thread for regular statistics logging.
         """
+        time.sleep(0.5)
+        log.debug('Starting proxy testers...')
+        self.start_testers()
+
         notice_timer = default_timer()
         while True:
-            db_stats = get_connection_stats()
             now = default_timer()
 
             # Print statistics regularly
@@ -161,6 +161,8 @@ class TestManager():
                 log.info('Tests in last %ds: %d valid and %d failed.',
                          self.args.manager_notice_interval,
                          self.notice_success, self.notice_fail)
+
+                db_stats = get_connection_stats()
                 log.debug('Database connections: %d in use and %d available.',
                           db_stats[0], db_stats[1])
 
