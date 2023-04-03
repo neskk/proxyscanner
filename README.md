@@ -58,7 +58,6 @@ We're not responsible for these proxies and we're not responsible for what users
 ## TODO
 - Cleanup queries - proxies stuck on testing status + old tests + old and bad proxies.
 - Separate class to handle output of proxylists.
-- Separate class to query and feed proxies to be tested/scanned.
 - Flask Webserver:
     - Configuration to specify hostname and port to run Flask.
     - Use endpoint as AZenv proxy judge.
@@ -76,10 +75,10 @@ We're not responsible for these proxies and we're not responsible for what users
 ## Usage
 
 ```
-usage: start.py [-h] [-cf CONFIG] [-v] [--log-path LOG_PATH] [--download-path DOWNLOAD_PATH] [-pj PROXY_JUDGE] [-ua {random,chrome,firefox,safari}] --db-name DB_NAME --db-user DB_USER --db-pass DB_PASS [--db-host DB_HOST] [--db-port DB_PORT]
-                [-Pf PROXY_FILE] [-Ps] [-Pp {HTTP,SOCKS4,SOCKS5}] [-Pri PROXY_REFRESH_INTERVAL] [-Psi PROXY_SCAN_INTERVAL] [-Pic [PROXY_IGNORE_COUNTRY ...]] [-Oi OUTPUT_INTERVAL] [-Ol OUTPUT_LIMIT] [-Onp] [-Oh OUTPUT_HTTP] [-Os OUTPUT_SOCKS]
-                [-Okc OUTPUT_KINANCITY] [-Opc OUTPUT_PROXYCHAINS] [-Orm OUTPUT_ROCKETMAP] [-Mni MANAGER_NOTICE_INTERVAL] [-Mt MANAGER_TESTERS] [-Ta] [-Tp] [-Tr TESTER_RETRIES] [-Tbf TESTER_BACKOFF_FACTOR] [-Tt TESTER_TIMEOUT] [-Tf]
-                [-Sr SCRAPPER_RETRIES] [-Sbf SCRAPPER_BACKOFF_FACTOR] [-St SCRAPPER_TIMEOUT] [-Sp SCRAPPER_PROXY]
+usage: start.py [-h] [-cf CONFIG] [-v] [--log-path LOG_PATH] [--download-path DOWNLOAD_PATH] [-pj PROXY_JUDGE] [-ua {random,chrome,firefox,safari}] --db-name DB_NAME --db-user DB_USER --db-pass DB_PASS [--db-host DB_HOST] [--db-port DB_PORT] [-Cp CLEANUP_PERIOD]
+                [-Ctc CLEANUP_TEST_COUNT] [-Cfr CLEANUP_FAIL_RATIO] [-Pf PROXY_FILE] [-Ps] [-Pp {HTTP,SOCKS4,SOCKS5}] [-Pri PROXY_REFRESH_INTERVAL] [-Psi PROXY_SCAN_INTERVAL] [-Pic [PROXY_IGNORE_COUNTRY ...]] [-Oi OUTPUT_INTERVAL] [-Ol OUTPUT_LIMIT] [-Onp]      
+                [-Oh OUTPUT_HTTP] [-Os OUTPUT_SOCKS] [-Okc OUTPUT_KINANCITY] [-Opc OUTPUT_PROXYCHAINS] [-Orm OUTPUT_ROCKETMAP] [-Mni MANAGER_NOTICE_INTERVAL] [-Mt MANAGER_TESTERS] [-Ta] [-Tp] [-Tr TESTER_RETRIES] [-Tbf TESTER_BACKOFF_FACTOR] [-Tt TESTER_TIMEOUT]
+                [-Tf] [-Sr SCRAPPER_RETRIES] [-Sbf SCRAPPER_BACKOFF_FACTOR] [-St SCRAPPER_TIMEOUT] [-Sp SCRAPPER_PROXY]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -100,6 +99,14 @@ Database:
   --db-pass DB_PASS     Password for the database. [env var: MYSQL_PASSWORD]
   --db-host DB_HOST     IP or hostname for the database. [env var: MYSQL_HOST]
   --db-port DB_PORT     Port for the database. [env var: MYSQL_PORT]
+
+Cleanup:
+  -Cp CLEANUP_PERIOD, --cleanup-period CLEANUP_PERIOD
+                        Check tests executed in the last X days. Default: 14.
+  -Ctc CLEANUP_TEST_COUNT, --cleanup-test-count CLEANUP_TEST_COUNT
+                        Minimum number of tests to consider. Default: 30.
+  -Cfr CLEANUP_FAIL_RATIO, --cleanup-fail-ratio CLEANUP_FAIL_RATIO
+                        Maximum failure ratio of tests. Default: 1.
 
 Proxy Sources:
   -Pf PROXY_FILE, --proxy-file PROXY_FILE
