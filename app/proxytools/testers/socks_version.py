@@ -107,7 +107,4 @@ class SOCKSVersion(Test):
 
         proxy_test.latency = int((timer() - start_time) * 1000)
 
-        # Save test results
-        self.save(proxy_test)
-
         return proxy_test

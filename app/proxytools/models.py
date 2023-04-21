@@ -364,17 +364,16 @@ class Proxy(BaseModel):
         for idx in range(0, len(proxylist), db_step):
             batch = proxylist[idx:idx + db_step]
             try:
-                with db.atomic():
-                    query = (Proxy
-                             .insert_many(batch)
-                             .on_conflict(preserve=[
-                                    Proxy.username,
-                                    Proxy.password,
-                                    Proxy.protocol,
-                                    Proxy.modified
-                                ]))
-                    if query.execute():
-                        count += len(batch)
+                query = (Proxy
+                         .insert_many(batch)
+                         .on_conflict(preserve=[
+                                Proxy.username,
+                                Proxy.password,
+                                Proxy.protocol,
+                                Proxy.modified
+                            ]))
+                if query.execute():
+                    count += len(batch)
             except IntegrityError as e:
                 log.exception('Unable to insert proxies: %s', e)
             except OperationalError as e:
@@ -395,7 +394,6 @@ class Proxy(BaseModel):
             query: Update query
         """
         min_age = datetime.utcnow() - timedelta(minutes=age_minutes)
-        conditions = (Proxy.modified < min_age)
         conditions = (
             (Proxy.modified < min_age) &
             (Proxy.status == ProxyStatus.TESTING))
@@ -621,9 +619,9 @@ def init_database(db_name, db_host, db_port, db_user, db_pass):
         host=db_host,
         port=db_port,
         charset='utf8mb4',
-        max_connections=20,  # use None for unlimited
+        max_connections=60,  # use None for unlimited
         stale_timeout=10,
-        timeout=0)  # 0 blocks indefinitely
+        timeout=10)  # 0 blocks indefinitely
 
     # Initialize DatabaseProxy
     db.initialize(database)

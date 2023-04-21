@@ -84,13 +84,6 @@ class Test(ABC):
         export_file(filename, info)
         log.debug('Response content saved to: %s', filename)
 
-    def save(self, proxy_test: ProxyTest) -> None:
-        try:
-            proxy_test.save()
-            proxy_test.database().close()
-        except Exception as e:
-            log.error(f'Failed to update proxy test: {e}')
-
     @abstractmethod
     def skip_test(self, proxy: Proxy) -> bool:
         return False
