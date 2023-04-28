@@ -261,6 +261,30 @@ class Proxy(BaseModel):
 
         return query.execute()
 
+    def unlock(self):
+        """
+        Unlock proxy from testing status.
+        """
+        proxy_test = self.latest_test()
+
+        query = (Proxy
+                 .update(status=proxy_test.status, modified=proxy_test.created)
+                 .where(Proxy.id == self.id))
+
+        return query.execute()
+
+    @staticmethod
+    def unlock_bulk(proxy_ids):
+        """
+        Unlock proxies from testing status.
+        """
+
+        query = (Proxy
+                 .update(status=ProxyStatus.UNKNOWN)
+                 .where(Proxy.id << proxy_ids))
+
+        return query.execute()
+
     def test_stats(self, age_days=0) -> tuple:
         """
         Select total number of tests done and failed.

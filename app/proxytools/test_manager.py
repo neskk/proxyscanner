@@ -170,7 +170,7 @@ class TestManager():
                 self.reset_notice_stats()
 
             if self.interrupt.is_set():
-                log.debug('Proxy manager shutting down...')
+                log.debug('Test manager shutting down...')
                 break
 
             time.sleep(5)

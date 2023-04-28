@@ -75,7 +75,7 @@ class ProxyTester(Thread):
                     continue
 
             except (DatabaseError, MaxConnectionsExceeded) as e:
-                log.warning('Failed to acquire a database connection: %s', e)
+                log.warning(f'Failed to acquire a database connection: {e}')
                 time.sleep(random.uniform(5.0, 15.0))
                 continue
 
@@ -234,10 +234,9 @@ class ProxyTester(Thread):
             if self.update_database(proxy, results):
                 failed = False
                 break
-            log.debug(f'Retry #{i+1}/5 - Database update failed')
 
         if failed:
-            log.error('Failed to update database! Consider increasing max number of db connections!')
+            log.critical('Increase max DB connections or decrease # of threads!')
             return
 
         log.debug(f'Updated Proxy #{proxy.id} - '
