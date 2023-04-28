@@ -3,6 +3,7 @@
 
 import logging
 import requests
+import queue
 import time
 
 from timeit import default_timer
@@ -12,7 +13,7 @@ from requests.packages import urllib3
 
 from .ip2location import IP2LocationDatabase
 from .config import Config
-from .models import get_connection_stats
+from .models import Proxy, get_connection_stats
 from .proxy_tester import ProxyTester
 from .testers.azenv import AZenv
 from .testers.google import Google
@@ -47,6 +48,9 @@ class TestManager():
 
         self.local_ip = self.find_local_ip()
         self.plan_test_cycle()
+
+        # Initialize queue of proxies to test
+        self.queue = queue.Queue(maxsize=self.args.manager_testers * 2)
 
     def find_local_ip(self):
         ip = None
@@ -118,11 +122,47 @@ class TestManager():
             self.notice_success = 0
             self.notice_fail = 0
 
+    def fill_queue(self):
+        num = self.queue.maxsize - self.queue.qsize()
+        protocol = self.args.proxy_protocol
+
+        try:
+            query = Proxy.need_scan(limit=num, protocols=protocol)
+
+            for proxy in query:
+                if self.lock_proxy(proxy):
+                    self.queue.put(proxy)
+
+        except Exception as e:
+            log.warning(f'Failed to refresh proxy testing queue: {e}')
+            return False
+
+        return True
+
+    def release_queue(self):
+        for proxy in iter(self.queue.get, None):
+            proxy.unlock()
+
+    def lock_proxy(self, proxy):
+        row_count = proxy.lock_for_testing()
+        if row_count != 1:
+            log.warning(f'Failed to lock proxy #{proxy.id} for testing.')
+            return False
+
+        return True
+
+    def get_proxy(self):
+        try:
+            proxy = self.queue.get(timeout=1)
+            return proxy
+        except queue.Empty:
+            return None
+
     def start(self):
         # Start test manager thread
         self.manager = Thread(
             name='test-manager',
-            target=self.__test_manager,
+            target=self.test_manager,
             daemon=False)
         self.manager.start()
 
@@ -142,12 +182,14 @@ class TestManager():
 
         self.manager.join()
 
-    def __test_manager(self):
+    def test_manager(self):
         """
         Manager main thread for regular statistics logging.
         """
         time.sleep(0.5)
-        log.debug('Starting proxy testers...')
+        log.debug('Loading proxies to test...')
+        self.fill_queue()
+        log.debug('Starting proxy tester threads...')
         self.start_testers()
 
         notice_timer = default_timer()
@@ -161,10 +203,10 @@ class TestManager():
                 log.info('Tests in last %ds: %d valid and %d failed.',
                          self.args.manager_notice_interval,
                          self.notice_success, self.notice_fail)
-
                 db_stats = get_connection_stats()
                 log.debug('Database connections: %d in use and %d available.',
                           db_stats[0], db_stats[1])
+                log.debug('%d proxies queued for testing.', self.queue.qsize())
 
                 notice_timer = now
                 self.reset_notice_stats()
@@ -173,4 +215,8 @@ class TestManager():
                 log.debug('Test manager shutting down...')
                 break
 
+            # Keep proxy test queue filled
+            self.fill_queue()
             time.sleep(5)
+
+        self.release_queue()

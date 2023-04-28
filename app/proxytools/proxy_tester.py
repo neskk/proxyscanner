@@ -53,23 +53,15 @@ class ProxyTester(Thread):
             if self.manager.interrupt.is_set():
                 break
 
+            # Grab a proxy waiting for test
+            proxy = self.manager.get_proxy()
+
+            if proxy is None:
+                log.debug('No proxy to test...')
+                time.sleep(random.uniform(5.0, 15.0))
+                continue
+
             try:
-                # Grab and lock proxy
-                proxy = Proxy.get_for_scan(protocols=self.protocols)
-
-                if proxy is None:
-                    log.debug('No proxy to test... Re-checking in 10sec.')
-                    # TODO: add config arg for sleep timer
-                    time.sleep(10)
-                    continue
-
-                row_count = proxy.lock_for_testing()
-
-                if row_count != 1:
-                    log.warning('Failed to acquire a proxy for testing.')
-                    time.sleep(random.uniform(0.2, 0.4))
-                    continue
-
                 # Check if proxy should be removed
                 if self.cleanup(proxy):
                     continue
@@ -78,9 +70,6 @@ class ProxyTester(Thread):
                 log.warning(f'Failed to acquire a database connection: {e}')
                 time.sleep(random.uniform(5.0, 15.0))
                 continue
-
-            # Release database connection for test duration
-            proxy.database().close()
 
             # Execute tests
             self.execute_tests(proxy)
