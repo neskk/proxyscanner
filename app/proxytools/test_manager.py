@@ -198,16 +198,7 @@ class TestManager():
 
             # Print statistics regularly
             if now >= notice_timer + self.args.manager_notice_interval:
-                log.info('Total tests: %d valid and %d failed.',
-                         self.total_success, self.total_fail)
-                log.info('Tests in last %ds: %d valid and %d failed.',
-                         self.args.manager_notice_interval,
-                         self.notice_success, self.notice_fail)
-                db_stats = get_connection_stats()
-                log.debug('Database connections: %d in use and %d available.',
-                          db_stats[0], db_stats[1])
-                log.debug('%d proxies queued for testing.', self.queue.qsize())
-
+                self.print_stats()
                 notice_timer = now
                 self.reset_notice_stats()
 
@@ -220,3 +211,14 @@ class TestManager():
             time.sleep(5)
 
         self.release_queue()
+
+    def print_stats(self):
+        log.info('Total tests: %d valid and %d failed.',
+                 self.total_success, self.total_fail)
+        log.info('Tests in last %ds: %d valid and %d failed.',
+                 self.args.manager_notice_interval,
+                 self.notice_success, self.notice_fail)
+        db_stats = get_connection_stats()
+        log.debug('Database connections: %d in use and %d available.',
+                  db_stats[0], db_stats[1])
+        log.debug('%d proxies queued for testing.', self.queue.qsize())
