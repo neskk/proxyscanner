@@ -224,6 +224,9 @@ class ProxyTester(Thread):
                 failed = False
                 break
 
+            if i < 4:
+                time.sleep(random.uniform(2.0, 5.0))
+
         if failed:
             log.critical('Increase max DB connections or decrease # of threads!')
             return
