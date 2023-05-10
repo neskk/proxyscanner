@@ -57,8 +57,9 @@ class ProxyParser():
 
     def load_proxylist(self):
         if not self.scrappers:
-            return
+            self.load_scrappers()
 
         for name, scrapper in self.scrappers.items():
             scrapper.start()
             scrapper.join()
+            self.unregister_scrapper(scrapper)
