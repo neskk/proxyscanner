@@ -643,8 +643,9 @@ def init_database(db_name, db_host, db_port, db_user, db_pass):
         host=db_host,
         port=db_port,
         charset='utf8mb4',
+        autoconnect=False,
         max_connections=60,  # use None for unlimited
-        stale_timeout=10,
+        stale_timeout=10,  # recycle connections
         timeout=10)  # 0 blocks indefinitely
 
     # Initialize DatabaseProxy
