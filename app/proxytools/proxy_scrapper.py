@@ -3,11 +3,15 @@
 
 import logging
 from threading import Thread
+import time
 import requests
 
 from abc import ABC, abstractmethod
 from urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
+
+from peewee import DatabaseError
+from playhouse.pool import MaxConnectionsExceeded
 
 from .config import Config
 from .models import Proxy, ProxyProtocol
@@ -207,12 +211,28 @@ class ProxyScrapper(ABC, Thread):
         log.info('%s successfully parsed %d proxies.', self.name, len(result))
         return result
 
+    def insert_proxylist(self, proxylist):
+        try:
+            Proxy.insert_bulk(proxylist)
+            Proxy.database().close()
+            return True
+        except (DatabaseError, MaxConnectionsExceeded) as e:
+            log.warn(f'Failed to insert scrapped proxies: {e}')
+            return False
+
     def run(self):
         try:
             proxylist = self.scrap()
             log.info('%s scrapped a total of %d proxies.', self.name, len(proxylist))
             proxylist = self.parse_proxylist(proxylist)
-            Proxy.insert_bulk(proxylist)
+            for i in range(5):
+                if self.insert_proxylist(proxylist):
+                    break
+                if i < 4:
+                    time.sleep(0.5)
+                else:
+                    log.critical('Increase max DB connections or decrease # of threads!')
+
         except Exception as e:
             log.exception('%s proxy scrapper failed: %s', self.name, e)
 
