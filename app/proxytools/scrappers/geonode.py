@@ -3,6 +3,8 @@
 
 import logging
 import math
+import random
+import time
 
 from ..models import ProxyProtocol
 from ..proxy_scrapper import ProxyScrapper
@@ -57,6 +59,8 @@ class GeoNode(ProxyScrapper):
             log.info('Parsing proxylist from webpage: %s', url)
             for row in json.get('data', []):
                 proxylist.append(f'{row["ip"]}:{row["port"]}')
+
+            time.sleep(random.uniform(2.0, 4.0))
 
         self.session.close()
         log.info('Parsed %d proxies from webpage.', len(proxylist))
