@@ -138,7 +138,8 @@ if __name__ == '__main__':
             args.db_host,
             args.db_port,
             args.db_user,
-            args.db_pass)
+            args.db_pass,
+            args.db_max_conn)
 
         log.info('Starting up...')
         # Note: Flask reloader runs two processes

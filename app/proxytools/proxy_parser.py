@@ -61,5 +61,7 @@ class ProxyParser():
 
         for name, scrapper in self.scrappers.items():
             scrapper.start()
+            #for name, scrapper in self.scrappers.items():
             scrapper.join()
-            self.unregister_scrapper(scrapper)
+
+        self.scrappers.clear()
