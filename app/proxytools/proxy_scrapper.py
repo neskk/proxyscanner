@@ -211,30 +211,34 @@ class ProxyScrapper(ABC, Thread):
         log.info('%s successfully parsed %d proxies.', self.name, len(result))
         return result
 
-    def insert_proxylist(self, proxylist):
-        try:
-            Proxy.insert_bulk(proxylist)
-            Proxy.database().close()
-            return True
-        except (DatabaseError, MaxConnectionsExceeded) as e:
-            log.warn(f'Failed to insert scrapped proxies: {e}')
-            return False
-
     def run(self):
         try:
             proxylist = self.scrap()
             log.info('%s scrapped a total of %d proxies.', self.name, len(proxylist))
             proxylist = self.parse_proxylist(proxylist)
             for i in range(5):
-                if self.insert_proxylist(proxylist):
+                if self.update_database(proxylist):
                     break
-                if i < 4:
-                    time.sleep(0.5)
-                else:
-                    log.critical('Increase max DB connections or decrease # of threads!')
+                time.sleep(3.0)
 
         except Exception as e:
-            log.exception('%s proxy scrapper failed: %s', self.name, e)
+            log.exception(f'{self.name} proxy scrapper failed: {e}')
+
+    def update_database(self, proxylist):
+        try:
+            Proxy.database().connect()
+            Proxy.insert_bulk(proxylist)
+            return True
+        except DatabaseError as e:
+            log.critical(f'Failed to insert scrapped proxies: {e}')
+        except MaxConnectionsExceeded as e:
+            log.critical(
+                f'Unable to insert scrapped proxies: {e}\n'
+                'Increase max DB connections or decrease # of threads!')
+        finally:
+            Proxy.database().close()
+
+        return False
 
     @abstractmethod
     def scrap(self) -> list:

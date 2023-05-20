@@ -27,7 +27,8 @@ class App:
             args.db_host,
             args.db_port,
             args.db_user,
-            args.db_pass)
+            args.db_pass,
+            args.max_conn)
 
         self.args = args
         self.manager = TestManager()
@@ -38,16 +39,15 @@ class App:
             self.__launch()
             self.__work()
         except (KeyboardInterrupt, SystemExit):
-            self.__output()
-
-            # Signal manager to stop threads
-            log.info('Waiting for proxy tests to finish...')
-            self.manager.stop()
+            pass
         except Exception as e:
             log.exception(e)
         finally:
+            self.__stop()
+            self.__output()
             self.__cleanup()
-            sys.exit()
+
+        sys.exit(0)
 
     def __launch(self):
         # Validate proxy tester benchmark responses
@@ -59,16 +59,26 @@ class App:
             log.critical('Test manager response validation failed.')
             sys.exit(1)
 
-        # Unlock proxies stuck in testing
-        query = Proxy.unlock_stuck()
-        rows = query.execute()
-        log.info('Unlocked %d proxies stuck in testing.', rows)
+        self.unlock_stuck()
 
         # Fetch and insert new proxies from configured sources
         self.parser.load_proxylist()
 
         # Handle SIGTERM gracefully
         signal.signal(signal.SIGTERM, utils.sigterm_handler)
+
+    def __stop(self):
+        log.info('Shutting down...')
+        # Stop proxy tester threads
+        self.manager.stop()
+
+    def unlock_stuck(self):
+        Proxy.database().connect()
+        query = Proxy.unlock_stuck()
+        rows = query.execute()
+        Proxy.database().close()
+
+        log.info('Unlocked %d proxies stuck in testing.', rows)
 
     def __work(self):
         refresh_timer = default_timer()
@@ -77,27 +87,25 @@ class App:
 
         while True:
             if self.manager.interrupt.is_set():
-                sys.exit(1)
-
+                break
             now = default_timer()
             if now > refresh_timer + self.args.proxy_refresh_interval:
                 refresh_timer = now
                 log.info('Refreshing proxylists from configured sources.')
                 self.parser.load_proxylist()
-                # Unlock proxies stuck in testing
-                query = Proxy.unlock_stuck()
-                rows = query.execute()
-                log.info('Unlocked %d proxies stuck in testing.', rows)
+
+                self.unlock_stuck()
 
                 # Validate proxy tester benchmark responses
                 if not self.manager.validate_responses():
                     log.critical('Proxy tester response validation failed.')
                     errors += 1
                     if errors > 2:
-                        sys.exit(1)
+                        break
                 else:
                     errors = 0
 
+            # Regular proxylist output
             if now > output_timer + self.args.output_interval:
                 output_timer = now
                 self.__output()
@@ -107,7 +115,7 @@ class App:
     def __output(self):
         args = self.args
         log.info('Outputting working proxylist.')
-
+        Proxy.database().connect()
         working_http = []
         working_socks = []
 
@@ -158,9 +166,11 @@ class App:
 
             App.export(args.output_socks, working_socks, args.output_no_protocol)
 
+        Proxy.database().close()
+
     def __cleanup(self):
         """ Handle shutdown tasks """
-        log.info('Shutting down...')
+        Proxy.database().close()
 
     def export(filename, proxylist, no_protocol=False):
         if not proxylist:

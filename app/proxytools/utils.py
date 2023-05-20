@@ -64,6 +64,9 @@ def configure_logging(log, verbosity=0, output_path='logs', output_name='-app'):
         logging.getLogger('requests').setLevel(logging.WARNING)
         logging.getLogger('urllib3').setLevel(logging.ERROR)
 
+    if verbosity > 1:
+        logging.getLogger('peewee.pool').setLevel(logging.DEBUG)
+
 
 def sigterm_handler(_signo, _stack_frame):
     sys.exit(0)

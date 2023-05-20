@@ -407,12 +407,12 @@ class Proxy(BaseModel):
         return count
 
     @staticmethod
-    def unlock_stuck(age_minutes=10) -> ModelUpdate:
+    def unlock_stuck(age_minutes=15) -> ModelUpdate:
         """
-        Unlock proxies stuck in testing for a long time.
+        Unlock proxies stuck in testing for too long.
 
         Args:
-            age_minutes (int, optional): Maximum test time. Defaults to 10 minutes.
+            age_minutes (int, optional): Maximum test time. Defaults to 15 minutes.
 
         Returns:
             query: Update query
@@ -631,7 +631,7 @@ MODELS = [Proxy, ProxyTest, Version]
 # Note: Sqlite does not enforce foreign key checks by default
 # db = SqliteDatabase('sqlite-debug.db', pragmas={'foreign_keys': 1})
 # db = SqliteDatabase(':memory:', pragmas={'foreign_keys': 1})
-def init_database(db_name, db_host, db_port, db_user, db_pass):
+def init_database(db_name, db_host, db_port, db_user, db_pass, max_conn=20):
     """ Create a pooled connection to MySQL database """
     log.info('Connecting to MySQL database on %s:%i...', db_host, db_port)
 
@@ -644,62 +644,52 @@ def init_database(db_name, db_host, db_port, db_user, db_pass):
         port=db_port,
         charset='utf8mb4',
         autoconnect=False,
-        max_connections=60,  # use None for unlimited
-        stale_timeout=10,  # recycle connections
+        max_connections=max_conn,  # use None for unlimited
+        stale_timeout=180,  # use None to disable
         timeout=10)  # 0 blocks indefinitely
 
     # Initialize DatabaseProxy
     db.initialize(database)
 
     try:
+        db.connect()
         verify_database_schema()
         verify_table_encoding(db_name)
         return db
     except Exception as e:
-        log.exception('Failed to verify database schema: %s', e)
+        log.exception('Failed to initalize database: %s', e)
         sys.exit(1)
+    finally:
+        db.close()
 
 
+#  https://docs.peewee-orm.com/en/latest/peewee/api.html#Database.create_tables
 def create_tables():
     """ Create tables in the database (skips existing) """
-    with db:
-        for table in MODELS:
-            if not table.table_exists():
-                log.info('Creating database table: %s', table.__name__)
-                db.create_tables([table], safe=True)
-            else:
-                log.debug('Skipping database table %s, it already exists.',
-                          table.__name__)
+    table_names = ', '.join([m.__name__ for m in MODELS])
+    log.info('Creating database tables: %s', table_names)
+    db.create_tables(MODELS, safe=True)  # safe adds if not exists
+    # Create schema version key
+    Version.insert(key='schema_version', val=db_schema_version).execute()
+    log.info('Database schema created.')
 
 
+#  https://docs.peewee-orm.com/en/latest/peewee/api.html#Database.drop_tables
 def drop_tables():
     """ Drop all the tables in the database """
-    with db:
-        db.execute_sql('SET FOREIGN_KEY_CHECKS=0;')
-        for table in MODELS:
-            if table.table_exists():
-                log.info('Dropping database table: %s', table.__name__)
-                db.drop_tables([table], safe=True)
-
-        db.execute_sql('SET FOREIGN_KEY_CHECKS=1;')
+    table_names = ', '.join([m.__name__ for m in MODELS])
+    log.info('Dropping database tables: %s', table_names)
+    db.execute_sql('SET FOREIGN_KEY_CHECKS=0;')
+    db.drop_tables(MODELS, safe=True)
+    db.execute_sql('SET FOREIGN_KEY_CHECKS=1;')
+    log.info('Database schema deleted.')
 
 
 # https://docs.peewee-orm.com/en/latest/peewee/playhouse.html#schema-migrations
 def migrate_database_schema(old_ver):
     """ Migrate database schema """
-    log.info('Detected database version %i, updating to %i...',
-             old_ver, db_schema_version)
-
-    with db:
-        # Update database schema version
-        query = (Version
-                 .update(val=db_schema_version)
-                 .where(Version.key == 'schema_version'))
-        query.execute()
-
-    # Perform migrations here
+    log.info(f'Migrating schema version {old_ver} to {db_schema_version}.')
     migrator = MySQLMigrator(db)
-
     if old_ver < 2:
         # Remove hash field unique index
         migrate(migrator.drop_index('sample_model', 'sample_model_hash'))
@@ -722,60 +712,59 @@ def migrate_database_schema(old_ver):
                                 UIntegerField(index=True, null=True))
         )
 
-    # Always log that we're done.
-    log.info('Schema upgrade complete.')
-    return True
+    log.info('Schema migration complete.')
+
+
+def update_schema_version():
+    """ Update Version table with current schema version """
+    with db.atomic():
+        query = (Version
+                 .update(val=db_schema_version)
+                 .where(Version.key == 'schema_version'))
+        query.execute()
 
 
 def verify_database_schema():
     """ Verify if database is properly initialized """
     if not Version.table_exists():
-        log.info('Database schema is not created, initializing...')
         create_tables()
-        Version.insert(key='schema_version', val=db_schema_version).execute()
-    else:
-        db_ver = Version.get(Version.key == 'schema_version').val
+        return
 
-        if db_ver < db_schema_version:
-            if not migrate_database_schema(db_ver):
-                log.error('Error migrating database schema.')
-                sys.exit(1)
+    db_ver = Version.get(Version.key == 'schema_version').val
 
-        elif db_ver > db_schema_version:
-            log.error('Your database version (%i) seems to be newer than '
-                      'the code supports (%i).', db_ver, db_schema_version)
-            log.error('Upgrade your code base or drop the database.')
-            sys.exit(1)
+    # Check if schema migration is required
+    if db_ver < db_schema_version:
+        migrate_database_schema(db_ver)
+        update_schema_version()
+    elif db_ver > db_schema_version:
+        raise RuntimeError(f'Unsupported schema version: {db_ver} '
+                           f'(code requires: {db_schema_version})')
 
 
 def verify_table_encoding(db_name):
     """ Verify if table collation is valid """
-    with db:
-        cmd_sql = '''
-            SELECT table_name FROM information_schema.tables WHERE
-            table_collation != "utf8mb4_unicode_ci"
-            AND table_schema = "%s";''' % db_name
-        change_tables = db.execute_sql(cmd_sql)
+    change_tables = db.execute_sql(
+        'SELECT table_name FROM information_schema.tables WHERE '
+        'table_collation != "utf8mb4_unicode_ci" '
+        f'AND table_schema = "{db_name}";')
 
-        cmd_sql = 'SHOW tables;'
-        tables = db.execute_sql(cmd_sql)
+    tables = db.execute_sql('SHOW tables;')
 
-        if change_tables.rowcount > 0:
-            log.info('Changing collation and charset on %s tables.',
-                     change_tables.rowcount)
+    if change_tables.rowcount > 0:
+        log.info('Changing collation and charset on %s tables.',
+                 change_tables.rowcount)
 
-            if change_tables.rowcount == tables.rowcount:
-                log.info('Changing whole database, this might a take while.')
+        if change_tables.rowcount == tables.rowcount:
+            log.info('Changing whole database, this might a take while.')
 
-            db.execute_sql('SET FOREIGN_KEY_CHECKS=0;')
-            for table in change_tables:
-                log.debug('Changing collation and charset on table %s.',
-                          table[0])
-                cmd_sql = '''
-                    ALTER TABLE %s CONVERT TO CHARACTER SET utf8mb4
-                    COLLATE utf8mb4_unicode_ci;''' % str(table[0])
-                db.execute_sql(cmd_sql)
-            db.execute_sql('SET FOREIGN_KEY_CHECKS=1;')
+        db.execute_sql('SET FOREIGN_KEY_CHECKS=0;')
+        for table in change_tables:
+            log.debug('Changing collation and charset on table %s.',
+                      table[0])
+            db.execute_sql(
+                f'ALTER TABLE {table[0]} CONVERT TO '
+                'CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;')
+        db.execute_sql('SET FOREIGN_KEY_CHECKS=1;')
 
 
 def get_connection_stats():

@@ -149,6 +149,10 @@ def get_args():
                        env_var='MYSQL_PORT',
                        help='Port for the database.',
                        type=int, default=3306)
+    group.add_argument('--max-conn',
+                       env_var='MYSQL_MAX_CONN',
+                       help='Maximum number of connections to the database.',
+                       type=int, default=20)
 
     group = parser.add_argument_group('Cleanup')
     group.add_argument('-Cp', '--cleanup-period',
