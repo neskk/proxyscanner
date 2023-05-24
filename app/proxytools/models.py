@@ -14,6 +14,7 @@ from playhouse.migrate import migrate, MySQLMigrator
 
 from datetime import datetime, timedelta
 from enum import IntEnum
+from hashlib import blake2b
 
 
 log = logging.getLogger(__name__)
@@ -612,16 +613,92 @@ class ProxyTest(BaseModel):
         return query
 
 
-class Version(BaseModel):
+class DBConfig(BaseModel):
     """ Database versioning model """
-    key = Utf8mb4CharField()
-    val = SmallIntegerField()
+    key = Utf8mb4CharField(null=False, max_length=64, unique=True)
+    val = Utf8mb4CharField(null=True, max_length=64)
+    modified = DateTimeField(index=True, default=datetime.utcnow)
 
     class Meta:
         primary_key = False
+        table_name = 'db_config'
+
+    @staticmethod
+    def get_schema_version() -> int:
+        """ Get current schema version """
+        db_ver = DBConfig.get(DBConfig.key == 'schema_version').val
+        return int(db_ver)
+
+    @staticmethod
+    def insert_schema_version():
+        """ Insert current schema version """
+        DBConfig.insert(key='schema_version', val=db_schema_version).execute()
+
+    @staticmethod
+    def update_schema_version():
+        """ Update current schema version """
+        with db.atomic():
+            query = (DBConfig
+                     .update(val=db_schema_version)
+                     .where(DBConfig.key == 'schema_version'))
+            query.execute()
+
+    @staticmethod
+    def init_lock():
+        """ Initialize database lock """
+        DBConfig.get_or_create(
+            key='read_lock',
+            defaults={'val': None})
+
+    @staticmethod
+    def lock_database(local_ip):
+        """ Update database lock with local IP """
+        hash = blake2b(local_ip.encode(), digest_size=10).hexdigest()
+
+        conditions = (
+            (DBConfig.key == 'read_lock') &
+            (DBConfig.val.is_null(True)))
+
+        query = (DBConfig
+                 .update(val=hash, modified=datetime.utcnow())
+                 .where(conditions))
+        row_count = query.execute()
+
+        if row_count == 1:
+            log.debug('Locked database for isolated updates.')
+            return True
+
+        max_lock = datetime.utcnow() - timedelta(seconds=10)
+        conditions = (
+            (DBConfig.key == 'read_lock') &
+            (DBConfig.modified < max_lock))
+
+        query = (DBConfig
+                 .update(val=hash, modified=datetime.utcnow())
+                 .where(conditions))
+
+        row_count = query.execute()
+        if row_count == 1:
+            log.debug('Database locked for isolated updates (forced).')
+            return True
+
+        return False
+
+    @staticmethod
+    def unlock_database():
+        """ Update database to clear lock """
+        query = (DBConfig
+                 .update(val=None, modified=datetime.utcnow())
+                 .where(DBConfig.key == 'read_lock'))
+        row_count = query.execute()
+
+        if row_count == 1:
+            return True
+
+        return False
 
 
-MODELS = [Proxy, ProxyTest, Version]
+MODELS = [Proxy, ProxyTest, DBConfig]
 
 
 ###############################################################################
@@ -670,7 +747,7 @@ def create_tables():
     log.info('Creating database tables: %s', table_names)
     db.create_tables(MODELS, safe=True)  # safe adds if not exists
     # Create schema version key
-    Version.insert(key='schema_version', val=db_schema_version).execute()
+    DBConfig.insert_schema_version()
     log.info('Database schema created.')
 
 
@@ -690,52 +767,26 @@ def migrate_database_schema(old_ver):
     """ Migrate database schema """
     log.info(f'Migrating schema version {old_ver} to {db_schema_version}.')
     migrator = MySQLMigrator(db)
-    if old_ver < 2:
-        # Remove hash field unique index
-        migrate(migrator.drop_index('sample_model', 'sample_model_hash'))
-        # Reset hash field in all rows
-        Proxy.update(hash=1).execute()
-        # Modify column type
-        db.execute_sql(
-            'ALTER TABLE `proxy` '
-            'CHANGE COLUMN `hash` `hash` INT UNSIGNED NOT NULL;'
-        )
-        # Re-hash all proxies
-        Proxy.rehash_all()
-        # Recreate hash field unique index
-        migrate(migrator.add_index('proxy', ('hash',), True))
 
-    if old_ver < 3:
-        # Add response time field
-        migrate(
-            migrator.add_column('proxy', 'latency',
-                                UIntegerField(index=True, null=True))
-        )
+    if old_ver < 2:
+        migrate(migrator.rename_table('db_config', 'db_config'))
 
     log.info('Schema migration complete.')
 
 
-def update_schema_version():
-    """ Update Version table with current schema version """
-    with db.atomic():
-        query = (Version
-                 .update(val=db_schema_version)
-                 .where(Version.key == 'schema_version'))
-        query.execute()
-
-
 def verify_database_schema():
     """ Verify if database is properly initialized """
-    if not Version.table_exists():
+    if not DBConfig.table_exists():
         create_tables()
         return
 
-    db_ver = Version.get(Version.key == 'schema_version').val
+    DBConfig.init_lock()
+    db_ver = DBConfig.get_schema_version()
 
     # Check if schema migration is required
     if db_ver < db_schema_version:
         migrate_database_schema(db_ver)
-        update_schema_version()
+        DBConfig.update_schema_version()
     elif db_ver > db_schema_version:
         raise RuntimeError(f'Unsupported schema version: {db_ver} '
                            f'(code requires: {db_schema_version})')
