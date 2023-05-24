@@ -16,7 +16,7 @@ from proxytools.app import App
 from proxytools.config import Config
 from proxytools.utils import configure_logging, random_ip
 
-from proxytools.models import Proxy, ProxyTest, ProxyProtocol, ProxyStatus
+from proxytools.models import Proxy, ProxyTest, ProxyProtocol, ProxyStatus, DBConfig
 
 log = logging.getLogger()
 
