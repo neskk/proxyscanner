@@ -96,7 +96,7 @@ class App:
                 log.info('Refreshing proxylists from configured sources.')
                 self.parser.load_proxylist()
 
-                self.unlock_stuck()
+                self.unlock_stuck()  # source of deadlock
 
                 # Validate proxy tester benchmark responses
                 if not self.manager.validate_responses():
