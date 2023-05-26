@@ -29,10 +29,11 @@ class Test(ABC):
         self.args = Config.get_args()
         self.manager = manager
         self.name = name
+        self.proxy_judge = Config.get_proxyjudge()
+
         self.user_agent = UserAgent.generate(self.args.user_agent)
         self.headers = http_headers()
         self.headers['User-Agent'] = self.user_agent
-        self.local_ip = manager.local_ip
 
         # https://urllib3.readthedocs.io/en/stable/reference/urllib3.util.html
         self.urlib3_retry = urllib3.Retry(

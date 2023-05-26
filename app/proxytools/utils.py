@@ -4,13 +4,14 @@
 import logging
 import os
 import random
+import re
 import socket
 import struct
 import sys
 import time
 
 from timeit import default_timer as timer
-from urllib import request
+import requests
 
 log = logging.getLogger(__name__)
 
@@ -99,24 +100,14 @@ def export_file(filename, content):
             file.write(content)
 
 
-def find_local_ip(self):
-    ip = None
-    try:
-        r = request.get(self.args.proxy_judge)
-        r.raise_for_status()
-        response = r.text
-        lines = response.split('\n')
-
-        for line in lines:
-            if 'REMOTE_ADDR' in line:
-                ip = line.split('=')[1].strip()
-                break
-
-        log.info('Local IP: %s', self.local_ip)
-    except Exception:
-        log.exception('Failed to connect to proxy judge.')
-
-    return ip
+def find_ip_address(text):
+    pattern = r'\b(?:\d{1,3}\.){3}\d{1,3}\b'
+    match = re.search(pattern, text)
+    if match:
+        ip_address = match.group()
+        return ip_address
+    else:
+        return None
 
 
 def validate_ip(ip):
@@ -124,13 +115,35 @@ def validate_ip(ip):
         parts = ip.split('.')
         return len(parts) == 4 and all(0 <= int(part) < 256 for part in parts)
     except ValueError:
-        # One of the "parts" is not convertible to integer.
-        log.warning('Bad IP: %s', ip)
+        # One of the "parts" is not convertible to integer
         return False
     except (AttributeError, TypeError):
-        # Input is not even a string.
-        log.warning('Weird IP: %s', ip)
+        # Input is not even a string
         return False
+
+
+def find_local_ip(proxy_judge):
+    r = requests.get(proxy_judge)
+    r.raise_for_status()
+    response = r.text
+    lines = response.split('\n')
+
+    for line in lines:
+        if 'REMOTE_ADDR' in line:
+            ip = find_ip_address(line)
+            if not validate_ip(ip):
+                raise RuntimeError(f'Invalid IP address: {ip}')
+            return ip
+
+    raise RuntimeError(f'Unable to parse local IP using: {proxy_judge}')
+
+
+def query_ipify():
+    r = requests.get('https://api.ipify.org/?format=json')
+    r.raise_for_status()
+    response = r.json()
+
+    return response['ip']
 
 
 def ip2int(addr):

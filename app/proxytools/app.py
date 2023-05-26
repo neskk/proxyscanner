@@ -12,7 +12,8 @@ from proxytools import utils
 from proxytools.config import Config
 from proxytools.test_manager import TestManager
 from proxytools.proxy_parser import ProxyParser
-from proxytools.models import init_database, ProxyProtocol, Proxy
+from proxytools.models import ProxyProtocol, Proxy
+from proxytools.db import Database, DatabaseQueue
 
 log = logging.getLogger(__name__)
 
@@ -20,17 +21,10 @@ log = logging.getLogger(__name__)
 class App:
 
     def __init__(self):
-        args = Config.get_args()
-
-        init_database(
-            args.db_name,
-            args.db_host,
-            args.db_port,
-            args.db_user,
-            args.db_pass,
-            args.max_conn)
-
-        self.args = args
+        self.args = Config.get_args()
+        log.info(f'Found local IP: {self.args.local_ip}')
+        self.db = Database()
+        self.db_queue = DatabaseQueue.get_db_queue()
         self.manager = TestManager()
         self.parser = ProxyParser()
 
@@ -53,10 +47,12 @@ class App:
         # Validate proxy tester benchmark responses
         if self.manager.validate_responses():
             log.info('Test manager response validation was successful.')
+            # Start database queue threads
+            self.db_queue.start()
             # Launch proxy tester threads
             self.manager.start()
         else:
-            log.critical('Test manager response validation failed.')
+            log.error('Test manager response validation failed.')
             sys.exit(1)
 
         self.unlock_stuck()
@@ -71,6 +67,8 @@ class App:
         log.info('Shutting down...')
         # Stop proxy tester threads
         self.manager.stop()
+        # Stop database queue threads
+        self.db_queue.stop()
 
     def unlock_stuck(self):
         Proxy.database().connect()
@@ -89,6 +87,10 @@ class App:
             if self.manager.interrupt.is_set():
                 break
             now = default_timer()
+
+            self.db.print_stats()
+            self.db_queue.print_stats()
+
             if now > refresh_timer + self.args.proxy_refresh_interval:
                 refresh_timer = now
                 log.info('Refreshing proxylists from configured sources.')
@@ -98,7 +100,7 @@ class App:
 
                 # Validate proxy tester benchmark responses
                 if not self.manager.validate_responses():
-                    log.critical('Proxy tester response validation failed.')
+                    log.error('Proxy tester response validation failed.')
                     errors += 1
                     if errors > 2:
                         break

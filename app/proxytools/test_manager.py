@@ -2,8 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import logging
-import requests
-import queue
 import time
 
 from timeit import default_timer
@@ -13,7 +11,6 @@ from requests.packages import urllib3
 
 from .ip2location import IP2LocationDatabase
 from .config import Config
-from .models import Proxy, get_connection_stats
 from .proxy_tester import ProxyTester
 from .testers.azenv import AZenv
 from .testers.google import Google
@@ -46,30 +43,7 @@ class TestManager():
         urllib3.disable_warnings()
         # logging.captureWarnings(True)
 
-        self.local_ip = self.find_local_ip()
         self.plan_test_cycle()
-
-        # Initialize queue of proxies to test
-        self.queue = queue.Queue(maxsize=self.args.manager_testers * 2)
-
-    def find_local_ip(self):
-        ip = None
-        try:
-            r = requests.get(self.args.proxy_judge)
-            r.raise_for_status()
-            response = r.text
-            lines = response.split('\n')
-
-            for line in lines:
-                if 'REMOTE_ADDR' in line:
-                    ip = line.split('=')[1].strip()
-                    break
-
-            log.info('Local IP: %s', ip)
-        except Exception as e:
-            log.exception('Failed to connect to proxy judge: %s', e)
-
-        return ip
 
     def plan_test_cycle(self):
         # Test sequence to be executed on each proxy
@@ -92,21 +66,6 @@ class TestManager():
 
         return True
 
-    def validate_ipify(self):
-        try:
-            r = requests.get('https://api.ipify.org/?format=json')
-            r.raise_for_status()
-            response = r.json()
-
-            ip = response['ip']
-            if ip == self.local_ip:
-                return True
-
-            log.error('Local IP (%s) does not match response (%s)', self.local_ip, ip)
-        except Exception as e:
-            log.exception('Failed to connect to API: %s', e)
-        return False
-
     def mark_success(self):
         with self.stats_lock:
             self.total_success += 1
@@ -122,90 +81,35 @@ class TestManager():
             self.notice_success = 0
             self.notice_fail = 0
 
-    def fill_queue(self):
-        num = self.queue.maxsize - self.queue.qsize()
-        protocol = self.args.proxy_protocol
-
-        try:
-            query = Proxy.need_scan(limit=num, protocols=protocol)
-
-            for proxy in query:
-                if self.lock_proxy(proxy):
-                    self.queue.put(proxy)
-
-        except Exception as e:
-            log.warning(f'Failed to refresh proxy testing queue: {e}')
-            return False
-
-        return True
-
-    def release_queue(self):
-        while not self.queue.empty():
-            proxy = self.queue.get(block=False)
-            proxy.unlock()
-
-    def lock_proxy(self, proxy):
-        row_count = proxy.lock_for_testing()
-        if row_count != 1:
-            log.warning(f'Failed to lock proxy #{proxy.id} for testing.')
-            return False
-
-        return True
-
-    def get_proxy(self):
-        try:
-            proxy = self.queue.get(timeout=1)
-            return proxy
-        except queue.Empty:
-            return None
-
     def start(self):
         # Start test manager thread
-        self.manager = Thread(
+        self.manager_thread = Thread(
             name='test-manager',
             target=self.test_manager,
             daemon=False)
-        self.manager.start()
-
-        self.launcher = Thread(
-            name='test-launcher',
-            target=self.launch_testers,
-            daemon=False)
-        self.launcher.start()
+        self.manager_thread.start()
 
     def launch_testers(self):
         self.tester_threads = []
-
+        time.sleep(5.0)
         for id in range(self.args.manager_testers):
-            if self.interrupt.is_set():
-                break
-            tester = ProxyTester(id, self)
-            self.tester_threads.append(tester)
-            tester.start()
-            # Throttle for database connection pool
-            if id < self.args.max_conn:
-                time.sleep(0.1)
-            else:
-                time.sleep(1.0)
+            tester_thread = ProxyTester(id, self)
+            self.tester_threads.append(tester_thread)
+            tester_thread.start()
 
     def stop(self):
         self.interrupt.set()
-        self.launcher.join()
+        self.manager_thread.join()
         log.info('Waiting for proxy tests to finish...')
-        self.manager.join()
-
         for tester in self.tester_threads:
             tester.join()
-
         log.info('Proxy tester threads shutdown.')
 
     def test_manager(self):
         """
         Manager main thread for regular statistics logging.
         """
-        time.sleep(0.5)
-        #log.debug('Loading proxies to test...')
-        #self.fill_queue()
+        self.launch_testers()
 
         notice_timer = default_timer()
         while True:
@@ -221,11 +125,7 @@ class TestManager():
                 log.debug('Test manager shutting down...')
                 break
 
-            # Keep proxy test queue filled
-            #self.fill_queue()
             time.sleep(5)
-
-        self.release_queue()
 
     def print_stats(self):
         log.info('Total tests: %d valid and %d failed.',
@@ -233,7 +133,3 @@ class TestManager():
         log.info('Tests in last %ds: %d valid and %d failed.',
                  self.args.manager_notice_interval,
                  self.notice_success, self.notice_fail)
-        db_stats = get_connection_stats()
-        log.info('Database connections: %d in use and %d available.',
-                 db_stats[0], db_stats[1])
-        #log.debug('%d proxies queued for testing.', self.queue.qsize())
