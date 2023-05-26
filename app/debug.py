@@ -45,7 +45,7 @@ def add_proxies(amount=1):
             'protocol': random.choices(protocols)[0]
         })
 
-    q = Proxy.insert_bulk(data)
+    q = Proxy.bulk_insert(data)
     return q
 
 
@@ -204,6 +204,6 @@ if __name__ == '__main__':
         },
     ]
 
-    Proxy.insert_bulk(proxies)
+    Proxy.bulk_insert(proxies)
     """
 

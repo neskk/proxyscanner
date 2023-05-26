@@ -2,31 +2,18 @@
 # -*- coding: utf-8 -*-
 
 import logging
-import sys
 
 from peewee import (
-    DatabaseProxy, fn, OperationalError, IntegrityError, JOIN,
-    Case, Model, ModelSelect, ModelUpdate, ModelDelete,
+    fn, JOIN, Case, OperationalError, IntegrityError,
+    Model, ModelSelect, ModelUpdate, ModelDelete,
     ForeignKeyField, BigAutoField, DateTimeField, CharField,
     IntegerField, BigIntegerField, SmallIntegerField, IPField)
-from playhouse.pool import PooledMySQLDatabase
-from playhouse.migrate import migrate, MySQLMigrator
 
 from datetime import datetime, timedelta
 from enum import IntEnum
 from hashlib import blake2b
 
-
 log = logging.getLogger(__name__)
-
-###############################################################################
-# Database initialization
-# https://docs.peewee-orm.com/en/latest/peewee/database.html#dynamically-defining-a-database
-# https://docs.peewee-orm.com/en/latest/peewee/playhouse.html#database-url
-###############################################################################
-db = DatabaseProxy()
-db_schema_version = 1
-db_step = 250
 
 
 class ProxyProtocol(IntEnum):
@@ -90,9 +77,6 @@ class IntEnumField(SmallIntegerField):
 # Note: field attribute "default" is implemented purely in Python and "choices" are not validated.
 ###############################################################################
 class BaseModel(Model):
-    class Meta:
-        database = db
-
     @classmethod
     def database(cls):
         return cls._meta.database
@@ -275,7 +259,19 @@ class Proxy(BaseModel):
         return query.execute()
 
     @staticmethod
-    def unlock_bulk(proxy_ids):
+    def bulk_lock(proxy_ids):
+        """
+        Lock proxies to testing status.
+        """
+
+        query = (Proxy
+                 .update(status=ProxyStatus.TESTING, modified=datetime.utcnow())
+                 .where(Proxy.id << proxy_ids))
+
+        return query.execute()
+
+    @staticmethod
+    def bulk_unlock(proxy_ids):
         """
         Unlock proxies from testing status.
         """
@@ -374,7 +370,7 @@ class Proxy(BaseModel):
 
     # https://docs.peewee-orm.com/en/latest/peewee/querying.html#inserting-rows-in-batches
     @staticmethod
-    def insert_bulk(proxylist):
+    def bulk_insert(proxylist, batch_size=250):
         """
         Insert new proxies to the database.
 
@@ -386,8 +382,8 @@ class Proxy(BaseModel):
         """
         log.info('Processing %d proxies into the database.', len(proxylist))
         count = 0
-        for idx in range(0, len(proxylist), db_step):
-            batch = proxylist[idx:idx + db_step]
+        for idx in range(0, len(proxylist), batch_size):
+            batch = proxylist[idx:idx + batch_size]
             try:
                 query = (Proxy
                          .insert_many(batch)
@@ -461,60 +457,35 @@ class Proxy(BaseModel):
         return query
 
     @staticmethod
-    def delete_failed(fail_days=7, fail_count=3,
-                      age_days=14, test_count=20, fail_rate=0.9) -> ModelDelete:
+    def delete_failed(age_days=14, test_count=20, fail_rate=0.9, limit=100):
         """
         Delete old proxies with no success tests.
 
         Args:
-            fail_days (int, optional): Period of testing to analyse. Defaults to 7 days.
-            fail_count (int, optional): Minimum number of failures during period. Defaults to 3.
             age_days (int, optional): Minimum proxy age. Defaults to 14 days.
             test_count (int, optional): Minimum number of attempts made. Defaults to 20.
             fail_rate (float, optional): Failure rate to delete. Defaults to 0.9 (90%).
+            limit (int, optional): Maximum number of records deleted.
 
         Returns:
-            query: Delete query
+            query: Deleted proxy count
         """
-        fail_age = datetime.utcnow() - timedelta(days=fail_days)
-        min_test_age = datetime.utcnow() - timedelta(minutes=30)
         min_age = datetime.utcnow() - timedelta(days=age_days)
 
         conditions = (
-            (ProxyTest.created > fail_age) &
-            (ProxyTest.created < min_test_age) &
-            (ProxyTest.status != ProxyStatus.OK))
+            (Proxy.status != ProxyStatus.TESTING) &
+            (Proxy.created < min_age) &
+            (Proxy.test_count > test_count) &
+            (Proxy.fail_count / Proxy.test_count > fail_rate))
 
-        subquery = (ProxyTest
-                    .select(ProxyTest.proxy)
-                    .where(conditions)
-                    .group_by(ProxyTest.proxy)
-                    .having(fn.Count(ProxyTest.id) > fail_count))
-        proxy_ids = [p.proxy_id for p in subquery.execute()]
+        query = (Proxy
+                 .delete()
+                 .where(conditions)
+                 .limit(limit))
 
-        count = 0
-        for idx in range(0, len(proxy_ids), db_step):
-            batch = proxy_ids[idx:idx + db_step]
-            with db.atomic():
-                # subquery = (ProxyTest
-                #             .delete()
-                #             .where(ProxyTest.proxy << batch))
-                # subcount += subquery.execute()
-
-                conditions = (
-                    (Proxy.created < min_age) &
-                    (Proxy.test_count > test_count) &
-                    (Proxy.fail_count / Proxy.test_count > fail_rate) &
-                    (Proxy.id << batch))
-
-                query = (Proxy
-                         .delete()
-                         .where(conditions))
-
-                count += query.execute()
-
-        log.info('Deleted %d proxies without a succesful test.', count)
-        return count
+        rowcount = query.execute()
+        log.info('Deleted %d proxies without a succesful test.', rowcount)
+        return rowcount
 
 
 class ProxyTest(BaseModel):
@@ -630,16 +601,19 @@ class DBConfig(BaseModel):
         return int(db_ver)
 
     @staticmethod
-    def insert_schema_version():
+    def insert_schema_version(schema_version):
         """ Insert current schema version """
-        DBConfig.insert(key='schema_version', val=db_schema_version).execute()
+        DBConfig.insert(
+            key='schema_version',
+            val=schema_version
+        ).execute()
 
     @staticmethod
-    def update_schema_version():
+    def update_schema_version(schema_version):
         """ Update current schema version """
-        with db.atomic():
+        with DBConfig.database().atomic():
             query = (DBConfig
-                     .update(val=db_schema_version)
+                     .update(val=schema_version)
                      .where(DBConfig.key == 'schema_version'))
             query.execute()
 
@@ -665,7 +639,6 @@ class DBConfig(BaseModel):
         row_count = query.execute()
 
         if row_count == 1:
-            log.debug('Locked database for isolated updates.')
             return True
 
         max_lock = datetime.utcnow() - timedelta(seconds=10)
@@ -679,150 +652,27 @@ class DBConfig(BaseModel):
 
         row_count = query.execute()
         if row_count == 1:
-            log.debug('Database locked for isolated updates (forced).')
+            log.warning('Database locked forcibly.')
             return True
 
         return False
 
     @staticmethod
-    def unlock_database():
+    def unlock_database(local_ip):
         """ Update database to clear lock """
+        hash = blake2b(local_ip.encode(), digest_size=10).hexdigest()
+
+        conditions = (
+            (DBConfig.key == 'read_lock') &
+            (DBConfig.val == hash))
+
         query = (DBConfig
                  .update(val=None, modified=datetime.utcnow())
-                 .where(DBConfig.key == 'read_lock'))
+                 .where(conditions))
         row_count = query.execute()
 
         if row_count == 1:
             return True
 
+        log.warning('Failed to unlock database.')
         return False
-
-
-MODELS = [Proxy, ProxyTest, DBConfig]
-
-
-###############################################################################
-# Database bootstrap
-###############################################################################
-
-# Note: Sqlite does not enforce foreign key checks by default
-# db = SqliteDatabase('sqlite-debug.db', pragmas={'foreign_keys': 1})
-# db = SqliteDatabase(':memory:', pragmas={'foreign_keys': 1})
-def init_database(db_name, db_host, db_port, db_user, db_pass, max_conn=20):
-    """ Create a pooled connection to MySQL database """
-    log.info('Connecting to MySQL database on %s:%i...', db_host, db_port)
-
-    # https://docs.peewee-orm.com/en/latest/peewee/playhouse.html#pool-apis
-    database = PooledMySQLDatabase(
-        db_name,
-        user=db_user,
-        password=db_pass,
-        host=db_host,
-        port=db_port,
-        charset='utf8mb4',
-        autoconnect=False,
-        max_connections=max_conn,  # use None for unlimited
-        stale_timeout=180,  # use None to disable
-        timeout=10)  # 0 blocks indefinitely
-
-    # Initialize DatabaseProxy
-    db.initialize(database)
-
-    try:
-        db.connect()
-        verify_database_schema()
-        verify_table_encoding(db_name)
-        return db
-    except Exception as e:
-        log.exception('Failed to initalize database: %s', e)
-        sys.exit(1)
-    finally:
-        db.close()
-
-
-#  https://docs.peewee-orm.com/en/latest/peewee/api.html#Database.create_tables
-def create_tables():
-    """ Create tables in the database (skips existing) """
-    table_names = ', '.join([m.__name__ for m in MODELS])
-    log.info('Creating database tables: %s', table_names)
-    db.create_tables(MODELS, safe=True)  # safe adds if not exists
-    # Create schema version key
-    DBConfig.insert_schema_version()
-    log.info('Database schema created.')
-
-
-#  https://docs.peewee-orm.com/en/latest/peewee/api.html#Database.drop_tables
-def drop_tables():
-    """ Drop all the tables in the database """
-    table_names = ', '.join([m.__name__ for m in MODELS])
-    log.info('Dropping database tables: %s', table_names)
-    db.execute_sql('SET FOREIGN_KEY_CHECKS=0;')
-    db.drop_tables(MODELS, safe=True)
-    db.execute_sql('SET FOREIGN_KEY_CHECKS=1;')
-    log.info('Database schema deleted.')
-
-
-# https://docs.peewee-orm.com/en/latest/peewee/playhouse.html#schema-migrations
-def migrate_database_schema(old_ver):
-    """ Migrate database schema """
-    log.info(f'Migrating schema version {old_ver} to {db_schema_version}.')
-    migrator = MySQLMigrator(db)
-
-    if old_ver < 2:
-        migrate(migrator.rename_table('db_config', 'db_config'))
-
-    log.info('Schema migration complete.')
-
-
-def verify_database_schema():
-    """ Verify if database is properly initialized """
-    if not DBConfig.table_exists():
-        create_tables()
-        return
-
-    DBConfig.init_lock()
-    db_ver = DBConfig.get_schema_version()
-
-    # Check if schema migration is required
-    if db_ver < db_schema_version:
-        migrate_database_schema(db_ver)
-        DBConfig.update_schema_version()
-    elif db_ver > db_schema_version:
-        raise RuntimeError(f'Unsupported schema version: {db_ver} '
-                           f'(code requires: {db_schema_version})')
-
-
-def verify_table_encoding(db_name):
-    """ Verify if table collation is valid """
-    change_tables = db.execute_sql(
-        'SELECT table_name FROM information_schema.tables WHERE '
-        'table_collation != "utf8mb4_unicode_ci" '
-        f'AND table_schema = "{db_name}";')
-
-    tables = db.execute_sql('SHOW tables;')
-
-    if change_tables.rowcount > 0:
-        log.info('Changing collation and charset on %s tables.',
-                 change_tables.rowcount)
-
-        if change_tables.rowcount == tables.rowcount:
-            log.info('Changing whole database, this might a take while.')
-
-        db.execute_sql('SET FOREIGN_KEY_CHECKS=0;')
-        for table in change_tables:
-            log.debug('Changing collation and charset on table %s.',
-                      table[0])
-            db.execute_sql(
-                f'ALTER TABLE {table[0]} CONVERT TO '
-                'CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;')
-        db.execute_sql('SET FOREIGN_KEY_CHECKS=1;')
-
-
-def get_connection_stats():
-    """
-    Number of database connections being used.
-
-    Returns:
-        tuple: (# in use, # of available)
-    """
-    return (len(db._in_use), len(db._connections))

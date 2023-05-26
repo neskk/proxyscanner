@@ -9,6 +9,7 @@ import os
 import sys
 
 from .models import ProxyProtocol
+from .utils import find_local_ip
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 APP_PATH = os.path.realpath(os.path.join(CWD, '..'))
@@ -17,6 +18,7 @@ APP_PATH = os.path.realpath(os.path.join(CWD, '..'))
 class Config:
     """ Singleton class that parses and holds all the configuration arguments """
     __args = None
+    __counter = 0
 
     @staticmethod
     def get_args():
@@ -25,13 +27,25 @@ class Config:
             Config()
         return Config.__args
 
+    @staticmethod
+    def get_proxyjudge():
+        """ Get and cycle proxy judges """
+        if Config.__args is None:
+            raise Exception('Must call Config.get_args() first!')
+
+        total = len(Config.__args.proxy_judge)
+        index = Config.__counter % total
+        proxyjudge = Config.__args.proxy_judge[index]
+        Config.__counter = (Config.__counter + 1) % total
+        return proxyjudge
+
     def __init__(self):
         """ Parse config/CLI arguments and setup workspace """
         if Config.__args is not None:
-            raise Exception("This class is a singleton!")
-        else:
-            Config.__args = get_args()
-            self.__check_config()
+            raise Exception('This class is a singleton!')
+
+        Config.__args = get_args()
+        self.__check_config()
 
     def __check_config(self):
         """ Validate configuration values """
@@ -41,8 +55,26 @@ class Config:
         if not self.__args.proxy_judge:
             raise RuntimeError('You must specify a URL for an AZenv proxy judge.')
 
+        if self.__args.db_max_conn <= 5:
+            raise RuntimeError('Database max connections must be greater than 5.')
+
+        if self.__args.db_batch_size <= 50:
+            raise RuntimeError('Database batch size must be greater than 50.')
+
         if self.__args.manager_testers <= 0:
-            raise RuntimeError('Proxy tester max concurrency must be greater than zero.')
+            raise RuntimeError('Proxy tester threads must be greater than 0.')
+
+        # Validate proxy judges
+        prev_ip = None
+        for pj in self.__args.proxy_judge:
+            local_ip = find_local_ip(pj)
+            if not prev_ip:
+                prev_ip = local_ip
+            elif local_ip != prev_ip:
+                RuntimeError(f'Proxy judge {pj}: {local_ip} '
+                             f'(before: {prev_ip})')
+
+        setattr(self.__args, 'local_ip', local_ip)
 
 
 ###############################################################################
@@ -121,8 +153,9 @@ def get_args():
                         default='downloads',
                         type=str_path)
     parser.add_argument('-pj', '--proxy-judge',
+                        action='append',
                         help='URL for AZenv script used to test proxies.',
-                        default='http://pascal.hoez.free.fr/azenv.php')
+                        default=['http://pascal.hoez.free.fr/azenv.php'])
     parser.add_argument('-ua', '--user-agent',
                         help='Browser User-Agent used. Default: random',
                         choices=['random', 'chrome', 'firefox', 'safari'],
@@ -149,10 +182,14 @@ def get_args():
                        env_var='MYSQL_PORT',
                        help='Port for the database.',
                        type=int, default=3306)
-    group.add_argument('--max-conn',
+    group.add_argument('--db-max-conn',
                        env_var='MYSQL_MAX_CONN',
                        help='Maximum number of connections to the database.',
                        type=int, default=20)
+    group.add_argument('--db-batch-size',
+                       env_var='MYSQL_BATCH_SIZE',
+                       help='Maximum number of rows to update per batch.',
+                       type=int, default=250)
 
     group = parser.add_argument_group('Cleanup')
     group.add_argument('-Cp', '--cleanup-period',

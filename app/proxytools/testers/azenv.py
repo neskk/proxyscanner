@@ -18,7 +18,7 @@ class AZenv(Test):
 
     def __init__(self, manager):
         super().__init__(manager, 'azenv')
-        self.base_url = self.args.proxy_judge
+        self.base_url = self.proxy_judge
 
     def skip_test(self, proxy: Proxy) -> bool:
         return False
@@ -140,7 +140,7 @@ class AZenv(Test):
 
         # search for local IP
         for value in headers.values():
-            if self.local_ip in value:
+            if self.args.local_ip in value:
                 proxy_test.status = ProxyStatus.ERROR
                 proxy_test.info = 'Non-anonymous proxy'
                 return False

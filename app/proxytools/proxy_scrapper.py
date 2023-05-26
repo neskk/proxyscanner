@@ -227,14 +227,12 @@ class ProxyScrapper(ABC, Thread):
     def update_database(self, proxylist):
         try:
             Proxy.database().connect()
-            Proxy.insert_bulk(proxylist)
+            Proxy.bulk_insert(proxylist, self.args.db_batch_size)
             return True
         except DatabaseError as e:
-            log.critical(f'Failed to insert scrapped proxies: {e}')
+            log.error(f'Failed to insert scrapped proxies: {e}')
         except MaxConnectionsExceeded as e:
-            log.critical(
-                f'Unable to insert scrapped proxies: {e}\n'
-                'Increase max DB connections or decrease # of threads!')
+            log.error(f'Failed to acquire a database connection: {e}')
         finally:
             Proxy.database().close()
 
