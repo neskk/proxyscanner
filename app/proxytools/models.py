@@ -117,6 +117,9 @@ class Proxy(BaseModel):
             return (1.0 - self.fail_count / self.test_count) * 100
         return 0.0
 
+    def __repr__(self):
+        return f'{self.ip}:{self.port}'
+
     def data(self) -> dict:
         return {
             'id': self.id,
@@ -404,7 +407,7 @@ class Proxy(BaseModel):
         return count
 
     @staticmethod
-    def unlock_stuck(age_minutes=15) -> ModelUpdate:
+    def unlock_stuck(age_minutes=60) -> ModelUpdate:
         """
         Unlock proxies stuck in testing for too long.
 
@@ -496,6 +499,9 @@ class ProxyTest(BaseModel):
     latency = UIntegerField(index=True, default=0)
     info = Utf8mb4CharField(null=True)
     created = DateTimeField(index=True, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f'{self.proxy}-{self.status}'
 
     @staticmethod
     def latest(exclude_ids=[]):

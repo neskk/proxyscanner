@@ -55,8 +55,6 @@ class App:
             log.error('Test manager response validation failed.')
             sys.exit(1)
 
-        self.unlock_stuck()
-
         # Fetch and insert new proxies from configured sources
         self.parser.load_proxylist()
 
@@ -69,14 +67,6 @@ class App:
         self.manager.stop()
         # Stop database queue threads
         self.db_queue.stop()
-
-    def unlock_stuck(self):
-        Proxy.database().connect()
-        query = Proxy.unlock_stuck()
-        rows = query.execute()
-        Proxy.database().close()
-
-        log.info('Unlocked %d proxies stuck in testing.', rows)
 
     def __work(self):
         refresh_timer = default_timer()
@@ -95,8 +85,6 @@ class App:
                 refresh_timer = now
                 log.info('Refreshing proxylists from configured sources.')
                 self.parser.load_proxylist()
-
-                self.unlock_stuck()  # source of deadlock
 
                 # Validate proxy tester benchmark responses
                 if not self.manager.validate_responses():

@@ -170,7 +170,9 @@ class DatabaseQueue():
         # Initialize queues
         self.test_queue = queue.Queue(maxsize=self.args.manager_testers * 2)
         self.proxy_queue = queue.Queue(maxsize=self.args.manager_testers * 2)
+        self.proxy_batch = []
         self.proxytest_queue = queue.Queue(maxsize=self.args.manager_testers * 10)
+        self.proxytest_batch = []
 
     def start(self):
         """
@@ -239,7 +241,28 @@ class DatabaseQueue():
             proxy = self.test_queue.get(block=False)
             proxy_ids.append(proxy.id)
 
-        return Proxy.bulk_unlock(proxy_ids)
+        try:
+            Proxy.database().connect()
+            rowcount = Proxy.bulk_unlock(proxy_ids)
+            log.debug(f'Unlocked {rowcount} proxies from testing.')
+            return True
+        except DatabaseError as e:
+            log.error(f'Failed to unlock testing queue: {e}')
+        except MaxConnectionsExceeded as e:
+            log.error(f'Failed to acquire a database connection: {e}')
+        finally:
+            Proxy.database().close()
+
+        log.warning(f'Failed to unlock {len(proxy_ids)} proxies.')
+        return False
+
+    def unlock_stuck(self):
+        Proxy.database().connect()
+        query = Proxy.unlock_stuck()
+        rows = query.execute()
+        Proxy.database().close()
+
+        log.info('Unlocked %d proxies stuck in testing.', rows)
 
     def update_proxy(self, proxy):
         self.proxy_queue.put(proxy, timeout=1)
@@ -249,13 +272,12 @@ class DatabaseQueue():
 
     def upsert_proxy_queue(self, threshold=0):
         threshold = min(self.proxy_queue.maxsize-1, threshold)
-        if self.proxy_queue.qsize() < threshold:
-            return
+        if self.proxy_queue.qsize() + len(self.proxy_batch) < threshold:
+            return True
 
-        proxy_batch = []
         while not self.proxy_queue.empty():
             proxy = self.proxy_queue.get(block=False)
-            proxy_batch.append(proxy)
+            self.proxy_batch.append(proxy)
 
         update_fields = [
             'status',
@@ -265,35 +287,64 @@ class DatabaseQueue():
             'country',
             'modified'
         ]
-        Proxy.bulk_update(
-            proxy_batch,
-            fields=update_fields,
-            batch_size=Database.BATCH_SIZE)
+
+        try:
+            Proxy.database().connect()
+            Proxy.bulk_update(
+                self.proxy_batch,
+                fields=update_fields,
+                batch_size=Database.BATCH_SIZE)
+            self.proxy_batch.clear()
+            return True
+        except DatabaseError as e:
+            log.error(f'Failed to upsert Proxy queue: {e}')
+            log.debug(f'Proxy batch: {self.proxy_batch}')
+        except MaxConnectionsExceeded as e:
+            log.error(f'Failed to acquire a database connection: {e}')
+        finally:
+            Proxy.database().close()
+
+        return False
 
     def upsert_proxytest_queue(self, threshold=0):
         threshold = min(self.proxytest_queue.maxsize-1, threshold)
-        if self.proxytest_queue.qsize() < threshold:
-            return
+        if self.proxytest_queue.qsize() + len(self.proxytest_batch) < threshold:
+            return True
 
-        proxytest_batch = []
         while not self.proxytest_queue.empty():
             proxytest = self.proxytest_queue.get(block=False)
-            proxytest_batch.append(proxytest)
+            self.proxytest_batch.append(proxytest)
 
-        ProxyTest.bulk_create(proxytest_batch, batch_size=Database.BATCH_SIZE)
+        try:
+            Proxy.database().connect()
+            ProxyTest.bulk_create(
+                self.proxytest_batch,
+                batch_size=Database.BATCH_SIZE)
+            self.proxytest_batch.clear()
+            return True
+        except DatabaseError as e:
+            log.error(f'Failed to upsert ProxyTest queue: {e}')
+        except MaxConnectionsExceeded as e:
+            log.error(f'Failed to acquire a database connection: {e}')
+        finally:
+            Proxy.database().close()
+
+        return False
 
     def print_stats(self):
         log.info(f'Test Queue: {self.test_queue.qsize()}')
-        log.info(f'Upsert Proxy Queue: {self.proxy_queue.qsize()}')
-        log.info(f'Upsert ProxyTest Queue: {self.proxytest_queue.qsize()}')
+        log.info(f'Upsert Proxy Queue: {self.proxy_queue.qsize()} '
+                 f'+ {len(self.proxy_batch)}')
+
+        log.info(f'Upsert ProxyTest Queue: {self.proxytest_queue.qsize()} '
+                 f'+ {len(self.proxytest_batch)}')
 
     def testing_loop(self):
         log.debug('Test queue thread started.')
         error_count = 0
         while True:
             if error_count > 4:
-                log.error('Giving up, unable to upsert Proxy queue.')
-                break
+                raise RuntimeError('Unable to get proxies to test.')
 
             if self.interrupt.is_set():
                 break
@@ -313,76 +364,48 @@ class DatabaseQueue():
             finally:
                 Proxy.database().close()
 
-        try:
-            Proxy.database().connect()
-            self.release_test_queue()
-        except DatabaseError as e:
-            log.error(f'Failed to release test queue: {e}')
-        except MaxConnectionsExceeded as e:
-            log.error(f'Failed to acquire a database connection: {e}')
-        finally:
-            Proxy.database().close()
-
+        self.release_test_queue()
         log.debug('Test queue thread shutdown.')
 
-    def upsert_proxy_loop(self):
+    def upsert_proxy_loop(self, threshold=10):
         log.debug('Proxy upsert thread started.')
         error_count = 0
         while True:
-            try:
-                if error_count > 4:
-                    log.error('Giving up, unable to upsert Proxy queue.')
-                    break
-                Proxy.database().connect()
-                if self.interrupt.is_set():
-                    # make sure we upsert all records
-                    self.upsert_proxy_queue()
-                else:
-                    self.upsert_proxy_queue(10)
+            if error_count > 4:
+                raise RuntimeError('Unable to upsert Proxy queue.')
 
-                error_count = 0
-                if self.interrupt.is_set():
-                    break
-            except DatabaseError as e:
-                log.error(f'Failed to upsert Proxy queue: {e}')
+            if self.interrupt.is_set():
+                threshold = 0
+
+            if not self.upsert_proxy_queue(threshold):
                 error_count += 1
                 time.sleep(1.0)
-            except MaxConnectionsExceeded as e:
-                log.error(f'Failed to acquire a database connection: {e}')
-                error_count += 1
-                time.sleep(1.0)
-            finally:
-                Proxy.database().close()
+                continue
+
+            error_count = 0
+            if self.interrupt.is_set():
+                break
 
         log.debug('Proxy upsert thread shutdown.')
 
-    def upsert_proxytest_loop(self):
+    def upsert_proxytest_loop(self, threshold=10):
         log.debug('ProxyTest upsert thread started.')
         error_count = 0
         while True:
-            try:
-                if error_count > 4:
-                    log.error('Giving up, unable to upsert ProxyTest queue.')
-                Proxy.database().connect()
-                if self.interrupt.is_set():
-                    # make sure we upsert all records
-                    self.upsert_proxytest_queue()
-                else:
-                    self.upsert_proxytest_queue(10)
+            if self.interrupt.is_set():
+                threshold = 0
 
-                error_count = 0
-                if self.interrupt.is_set():
-                    break
-            except DatabaseError as e:
-                log.error(f'Failed to upsert ProxyTest queue: {e}')
+            if error_count > 4:
+                raise RuntimeError('Unable to upsert ProxyTest queue.')
+
+            if not self.upsert_proxytest_queue(threshold):
                 error_count += 1
                 time.sleep(1.0)
-            except MaxConnectionsExceeded as e:
-                log.error(f'Failed to acquire a database connection: {e}')
-                error_count += 1
-                time.sleep(1.0)
-            finally:
-                Proxy.database().close()
+                continue
+
+            error_count = 0
+            if self.interrupt.is_set():
+                break
 
         log.debug('ProxyTest upsert thread shutdown.')
 
