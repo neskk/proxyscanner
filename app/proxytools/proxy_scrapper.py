@@ -214,7 +214,7 @@ class ProxyScrapper(ABC, Thread):
             proxylist = self.scrap()
             log.info('%s scrapped a total of %d proxies.', self.name, len(proxylist))
             proxylist = self.parse_proxylist(proxylist)
-            self.db_queue.add_proxylist(proxylist)
+            self.db_queue.insert_proxylist(proxylist)
 
         except Exception as e:
             log.exception(f'{self.name} proxy scrapper failed: {e}')

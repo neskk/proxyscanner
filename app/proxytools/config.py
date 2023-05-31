@@ -192,20 +192,20 @@ def get_args():
                        type=int, default=250)
 
     group = parser.add_argument_group('Cleanup')
-    group.add_argument('-Cp', '--cleanup-period',
-                       help=('Check tests executed in the last X days. '
+    group.add_argument('-Ca', '--cleanup-age',
+                       help=('Minimum proxy age to cleanup. '
                              'Default: 14.'),
                        default=14,
                        type=int)
     group.add_argument('-Ctc', '--cleanup-test-count',
                        help=('Minimum number of tests to consider. '
-                             'Default: 30.'),
-                       default=30,
+                             'Default: 20.'),
+                       default=20,
                        type=int)
     group.add_argument('-Cfr', '--cleanup-fail-ratio',
                        help=('Maximum failure ratio of tests. '
-                             'Default: 1.'),
-                       default=1,
+                             'Default: 0.9.'),
+                       default=0.9,
                        type=float_ratio)
 
     group = parser.add_argument_group('Proxy Sources')

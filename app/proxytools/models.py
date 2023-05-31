@@ -426,7 +426,7 @@ class Proxy(BaseModel):
                  .update(status=ProxyStatus.ERROR, modified=datetime.utcnow())
                  .where(conditions))
 
-        return query
+        return query.execute()
 
     def get_failed(age_days=14, test_count=20, fail_days=7, fail_count=10) -> ModelDelete:
         """
@@ -486,9 +486,7 @@ class Proxy(BaseModel):
                  .where(conditions)
                  .limit(limit))
 
-        rowcount = query.execute()
-        log.info('Deleted %d proxies without a succesful test.', rowcount)
-        return rowcount
+        return query.execute()
 
 
 class ProxyTest(BaseModel):

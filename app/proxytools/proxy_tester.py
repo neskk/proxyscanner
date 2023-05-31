@@ -1,11 +1,8 @@
 import logging
 import random
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from threading import Thread
-
-from peewee import DatabaseError
-from playhouse.pool import MaxConnectionsExceeded
 
 from .models import Proxy, ProxyStatus, ProxyTest
 from .config import Config
@@ -30,10 +27,12 @@ class ProxyTester(Thread):
             id (int): thread ID
         """
         super().__init__(name=f'proxy-tester-{id:03d}', daemon=False)
-        self.manager = manager
-        self.db_queue = DatabaseQueue.get_db_queue()
         self.id = id
+        self.manager = manager
+        self.interrupt = manager.interrupt
         self.args = Config.get_args()
+        self.db_queue = DatabaseQueue.get_db_queue()
+
         # Test only protocols in list (empty: all)
         self.protocols = []  # list(ProxyProtocol)
         self.tests = []
@@ -52,19 +51,15 @@ class ProxyTester(Thread):
         log.debug(f'{self.name} started.')
         while True:
             # Check if work is interrupted
-            if self.manager.interrupt.is_set():
+            if self.interrupt.is_set():
                 break
 
             proxy = self.db_queue.get_proxy()
 
             if proxy is None:
                 log.debug('No proxy to test...')
-                time.sleep(random.uniform(5.0, 15.0))
+                time.sleep(random.uniform(10.0, 30.0))
                 continue
-
-            # Check if proxy should be removed
-            # if self.cleanup(proxy):
-            #     continue
 
             # Execute tests
             self.execute_tests(proxy)
@@ -73,58 +68,6 @@ class ProxyTester(Thread):
             self.db_queue.update_proxy(proxy)
 
         log.debug(f'{self.name} shutdown.')
-
-    def cleanup(self, proxy: Proxy) -> bool:
-        """
-        Tests if proxy is old and not worth testing.
-
-        Args:
-            proxy (Proxy): proxy being tested
-
-        Returns:
-            bool: True if proxy was deleted, False otherwise
-        """
-        analysis_period = self.args.cleanup_period
-        min_age = datetime.utcnow() - timedelta(days=analysis_period)
-
-        # Do not evaluate proxies before a cleanup period has passed
-        if proxy.created > min_age:
-            return False
-
-        if proxy.test_count < self.args.cleanup_test_count:
-            return False
-
-        try:
-            ProxyTest.database().connect()
-            # Check test count during cleanup period
-            test_count = ProxyTest.all_tests(proxy.id, age_days=analysis_period).count()
-            if test_count < self.args.cleanup_test_count:
-                return False
-
-            # Check fail ratio during cleanup period
-            fail_count = ProxyTest.failed_tests(proxy.id, age_days=analysis_period).count()
-            fail_ratio = fail_count / test_count
-            if fail_ratio < self.args.cleanup_fail_ratio:
-                return False
-
-            return self.delete_proxy(proxy)
-
-        except DatabaseError as e:
-            log.error(f'Failed to validate Proxy #{proxy.id}: {e}')
-        except MaxConnectionsExceeded as e:
-            log.error(f'Failed to acquire a database connection: {e}')
-        finally:
-            Proxy.database().close()
-
-    def delete_proxy(self, proxy: Proxy):
-        row_count = proxy.delete_instance()
-        if row_count != 1:
-            log.warning(f'Failed to delete Proxy #{proxy.id}.')
-            return False
-
-        log.info(f'Deleted Proxy #{proxy.id} - failed '
-                 f'{proxy.fail_count} out of {proxy.test_count} tests.')
-        return True
 
     def evaluate_results(self, proxy: Proxy, results: list) -> None:
         """
@@ -183,9 +126,9 @@ class ProxyTester(Thread):
                     break
 
                 # Check if work is interrupted
-                if self.manager.interrupt.is_set():
+                if self.interrupt.is_set():
                     break
             except Exception:
                 log.exception('Error executing test: %s', test_name)
-                self.manager.stop()
+                self.interrupt.set()
                 break
