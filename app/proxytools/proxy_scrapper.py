@@ -2,19 +2,16 @@
 # -*- coding: utf-8 -*-
 
 import logging
-from threading import Thread
-import time
 import requests
+from threading import Thread
 
 from abc import ABC, abstractmethod
 from urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 
-from peewee import DatabaseError
-from playhouse.pool import MaxConnectionsExceeded
-
 from .config import Config
-from .models import Proxy, ProxyProtocol
+from .db import DatabaseQueue
+from .models import ProxyProtocol
 from .user_agent import UserAgent
 from .utils import export_file, http_headers, validate_ip
 
@@ -30,6 +27,7 @@ class ProxyScrapper(ABC, Thread):
         Thread.__init__(self, name=name, daemon=False)
         args = Config.get_args()
         self.args = args
+        self.db_queue = DatabaseQueue.get_db_queue()
 
         self.timeout = args.scrapper_timeout
         self.proxy = args.scrapper_proxy
@@ -216,27 +214,10 @@ class ProxyScrapper(ABC, Thread):
             proxylist = self.scrap()
             log.info('%s scrapped a total of %d proxies.', self.name, len(proxylist))
             proxylist = self.parse_proxylist(proxylist)
-            for i in range(5):
-                if self.update_database(proxylist):
-                    break
-                time.sleep(3.0)
+            self.db_queue.add_proxylist(proxylist)
 
         except Exception as e:
             log.exception(f'{self.name} proxy scrapper failed: {e}')
-
-    def update_database(self, proxylist):
-        try:
-            Proxy.database().connect()
-            Proxy.bulk_insert(proxylist, self.args.db_batch_size)
-            return True
-        except DatabaseError as e:
-            log.error(f'Failed to insert scrapped proxies: {e}')
-        except MaxConnectionsExceeded as e:
-            log.error(f'Failed to acquire a database connection: {e}')
-        finally:
-            Proxy.database().close()
-
-        return False
 
     @abstractmethod
     def scrap(self) -> list:
