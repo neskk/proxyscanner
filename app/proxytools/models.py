@@ -385,25 +385,25 @@ class Proxy(BaseModel):
         """
         log.info('Processing %d proxies into the database.', len(proxylist))
         count = 0
-        for idx in range(0, len(proxylist), batch_size):
-            batch = proxylist[idx:idx + batch_size]
-            try:
-                query = (Proxy
-                         .insert_many(batch)
-                         .on_conflict(preserve=[
-                                Proxy.username,
-                                Proxy.password,
-                                Proxy.protocol,
-                                Proxy.modified
-                            ]))
-                if query.execute():
-                    count += len(batch)
-            except IntegrityError as e:
-                log.exception('Unable to insert proxies: %s', e)
-            except OperationalError as e:
-                log.exception('Failed to insert proxies: %s', e)
+        with Proxy.database().atomic():
+            for idx in range(0, len(proxylist), batch_size):
+                batch = proxylist[idx:idx + batch_size]
+                try:
+                    query = (Proxy
+                             .insert_many(batch)
+                             .on_conflict(preserve=[
+                                    Proxy.username,
+                                    Proxy.password,
+                                    Proxy.protocol,
+                                    Proxy.modified
+                                ]))
+                    if query.execute():
+                        count += len(batch)
+                except IntegrityError as e:
+                    log.exception('Unable to insert proxies: %s', e)
+                except OperationalError as e:
+                    log.exception('Failed to insert proxies: %s', e)
 
-        log.info('Upserted %d proxies to the database.', count)
         return count
 
     @staticmethod
