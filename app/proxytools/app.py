@@ -74,13 +74,12 @@ class App:
         errors = 0
 
         while True:
-            if self.manager.interrupt.is_set():
-                break
-            now = default_timer()
-
             self.db.print_stats()
             self.db_queue.print_stats()
+            if self.manager.interrupt.is_set() | self.db_queue.interrupt.is_set():
+                break
 
+            now = default_timer()
             if now > refresh_timer + self.args.proxy_refresh_interval:
                 refresh_timer = now
                 log.info('Refreshing proxylists from configured sources.')
@@ -161,6 +160,7 @@ class App:
     def __cleanup(self):
         """ Handle shutdown tasks """
         Proxy.database().close()
+        log.info('Shutdown complete.')
 
     def export(filename, proxylist, no_protocol=False):
         if not proxylist:

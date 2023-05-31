@@ -56,8 +56,7 @@ We're not responsible for these proxies and we're not responsible for what users
 - ~~jsbeautifier==1.11.0~~ We're using a modified version of [packer.py](https://github.com/beautify-web/js-beautify/blob/master/python/jsbeautifier/unpackers/packer.py)
 
 ## TODO
-- Rework DB interactions to manually control open and close of connections:
-    - https://docs.peewee-orm.com/en/latest/peewee/database.html#connection-management
+- Find a way to interrupt test-manager right after the database queue is interrupted.
 - Cleanup queries - proxies stuck on testing status + old tests + old and bad proxies.
 - Separate class to handle output of proxylists.
 - Flask Webserver:

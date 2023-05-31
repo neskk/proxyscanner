@@ -16,7 +16,6 @@ class ProxyParser():
 
     def __init__(self):
         self.args = Config.get_args()
-
         args = self.args
         self.debug = args.verbose
         self.download_path = args.download_path
