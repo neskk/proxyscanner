@@ -49,6 +49,7 @@ class App:
             log.info('Test manager response validation was successful.')
             # Start database queue threads
             self.db_queue.start()
+            time.sleep(1.0)
             # Launch proxy tester threads
             self.manager.start()
         else:
