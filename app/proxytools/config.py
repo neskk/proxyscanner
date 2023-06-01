@@ -193,12 +193,12 @@ def get_args():
 
     group = parser.add_argument_group('Cleanup')
     group.add_argument('-Ca', '--cleanup-age',
-                       help=('Minimum proxy age to cleanup. '
+                       help=('Minimum proxy age in days. '
                              'Default: 14.'),
                        default=14,
                        type=int)
     group.add_argument('-Ctc', '--cleanup-test-count',
-                       help=('Minimum number of tests to consider. '
+                       help=('Minimum number of tests. '
                              'Default: 20.'),
                        default=20,
                        type=int)

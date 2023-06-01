@@ -1,5 +1,4 @@
 import logging
-import random
 import time
 from datetime import datetime
 from threading import Thread
@@ -54,11 +53,14 @@ class ProxyTester(Thread):
             if self.interrupt.is_set():
                 break
 
+            if self.db_queue.interrupt.is_set():
+                break
+
             proxy = self.db_queue.get_proxy()
 
             if proxy is None:
                 log.debug('No proxy to test...')
-                time.sleep(random.uniform(10.0, 30.0))
+                time.sleep(30.0)
                 continue
 
             # Execute tests
