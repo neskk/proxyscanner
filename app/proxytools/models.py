@@ -474,12 +474,13 @@ class Proxy(BaseModel):
             query: Deleted proxy count
         """
         min_age = datetime.utcnow() - timedelta(days=age_days)
+        fail_count = round(test_count * fail_rate)
 
         conditions = (
             (Proxy.status != ProxyStatus.TESTING) &
             (Proxy.created < min_age) &
-            (Proxy.test_count > test_count) &
-            (Proxy.fail_count / Proxy.test_count > fail_rate))
+            (Proxy.test_count >= test_count) &
+            (Proxy.fail_count >= fail_count))
 
         query = (Proxy
                  .delete()
