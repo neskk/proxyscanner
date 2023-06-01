@@ -235,7 +235,10 @@ class TestingQueue(Thread):
         self.queue = queue.Queue(maxsize=self.args.manager_testers * 2)
 
     def print_stats(self):
-        log.info(f'Testing Queue: {self.queue.qsize()} ')
+        log.info(f'Testing Queue: {self.queue.qsize()}')
+
+    def free_slots(self):
+        return self.queue.maxsize - self.queue.qsize()
 
     def get_proxy(self) -> Proxy:
         try:
@@ -246,37 +249,28 @@ class TestingQueue(Thread):
 
     def fill_queue(self):
         protocol = self.args.proxy_protocol
-        num = self.queue.maxsize - self.queue.qsize()
-
-        if num == 0:
+        free_slots = self.queue.maxsize - self.queue.qsize()
+        if free_slots == 0:
             time.sleep(1.0)
             return True
         try:
             Proxy.database().connect()
-
-            if not DBConfig.lock_database(self.args.local_ip):
-                time.sleep(1)
-                return True
-
-            query = Proxy.need_scan(limit=num, protocols=protocol)
+            query = Proxy.need_scan(limit=free_slots, protocols=protocol)
             proxy_ids = []
             for proxy in query:
                 proxy_ids.append(proxy.id)
                 self.queue.put(proxy)
             row_count = Proxy.bulk_lock(proxy_ids)
             log.debug(f'Locked {row_count} proxies for testing.')
-
-            DBConfig.unlock_database(self.args.local_ip)
             return True
-
         except DatabaseError as e:
-            log.error(f'Failed to fill test queue: {e}')
-            return False
+            log.warning(f'Failed to fill test queue: {e}')
         except MaxConnectionsExceeded as e:
-            log.error(f'Failed to acquire a database connection: {e}')
-            return False
+            log.warning(f'Failed to acquire a database connection: {e}')
         finally:
             Proxy.database().close()
+
+        return False
 
     def release_queue(self):
         proxy_ids = []
@@ -311,7 +305,14 @@ class TestingQueue(Thread):
             if self.interrupt.is_set():
                 break
 
-            if not self.fill_queue():
+            if not self.db_queue.lock_db():
+                time.sleep(1.0)
+                continue
+
+            result = self.fill_queue()
+            self.db_queue.unlock_db()
+
+            if not result:
                 error_count += 1
                 time.sleep(1.0 * error_count)
                 continue
@@ -352,19 +353,20 @@ class UpdateProxyQueue(Thread):
 
         try:
             Proxy.database().connect()
-            Proxy.bulk_update(
-                self.backlog,
-                fields=[
-                    'status',
-                    'latency',
-                    'test_count',
-                    'fail_count',
-                    'country',
-                    'modified'
-                ],
-                batch_size=Database.BATCH_SIZE)
-            self.backlog.clear()
-            return True
+            with Proxy.database().atomic():
+                Proxy.bulk_update(
+                    self.backlog,
+                    fields=[
+                        'status',
+                        'latency',
+                        'test_count',
+                        'fail_count',
+                        'country',
+                        'modified'
+                    ],
+                    batch_size=Database.BATCH_SIZE)
+                self.backlog.clear()
+                return True
         except DatabaseError as e:
             log.warning(f'Failed to update Proxy queue: {e}')
         except MaxConnectionsExceeded as e:
@@ -431,11 +433,12 @@ class UpdateProxyTestQueue(Thread):
 
         try:
             ProxyTest.database().connect()
-            ProxyTest.bulk_create(
-                self.backlog,
-                batch_size=Database.BATCH_SIZE)
-            self.backlog.clear()
-            return True
+            with ProxyTest.database().atomic():
+                ProxyTest.bulk_create(
+                    self.backlog,
+                    batch_size=Database.BATCH_SIZE)
+                self.backlog.clear()
+                return True
         except DatabaseError as e:
             log.warning(f'Failed to update ProxyTest queue: {e}')
         except MaxConnectionsExceeded as e:
@@ -500,7 +503,7 @@ class CleanupThread(Thread):
                 age_days=self.args.cleanup_age,
                 test_count=self.args.cleanup_test_count,
                 fail_rate=self.args.cleanup_fail_ratio,
-                limit=10)
+                limit=100)
             if row_count > 0:
                 log.debug(f'Deleted {row_count} broken proxies.')
             return True
@@ -531,7 +534,7 @@ class CleanupThread(Thread):
                 continue
 
             error_count = 0
-            time.sleep(10.0)
+            time.sleep(30.0)
 
         log.debug('Cleanup thread shutdown.')
 
@@ -584,6 +587,30 @@ class DatabaseQueue():
         self.cleanup_thread.join()
         log.info('Database queue threads shutdown.')
 
+    def lock_db(self):
+        try:
+            DBConfig.database().connect()
+            return DBConfig.lock_database(self.args.local_ip)
+        except DatabaseError as e:
+            log.error(f'Failed to lock database: {e}')
+        except MaxConnectionsExceeded as e:
+            log.error(f'Failed to acquire a database connection: {e}')
+        finally:
+            ProxyTest.database().close()
+        return False
+
+    def unlock_db(self):
+        try:
+            DBConfig.database().connect()
+            return DBConfig.unlock_database(self.args.local_ip)
+        except DatabaseError as e:
+            log.error(f'Failed to unlock database: {e}')
+        except MaxConnectionsExceeded as e:
+            log.error(f'Failed to acquire a database connection: {e}')
+        finally:
+            ProxyTest.database().close()
+        return False
+
     def insert_proxylist(self, proxylist):
         self.insert_proxy_thread.put_list(proxylist)
 
@@ -597,7 +624,7 @@ class DatabaseQueue():
         self.update_proxytest_thread.put(proxytest)
 
     def print_stats(self):
-        self.insert_proxy_thread.print_stats()
         self.testing_thread.print_stats()
+        self.insert_proxy_thread.print_stats()
         self.update_proxy_thread.print_stats()
         self.update_proxytest_thread.print_stats()

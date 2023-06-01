@@ -91,7 +91,7 @@ class TestManager():
 
     def launch_testers(self):
         self.tester_threads = []
-        time.sleep(5.0)
+        time.sleep(1.0)
         for id in range(self.args.manager_testers):
             tester_thread = ProxyTester(id, self)
             self.tester_threads.append(tester_thread)
