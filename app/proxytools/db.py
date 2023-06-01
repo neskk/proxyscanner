@@ -501,7 +501,7 @@ class CleanupThread(Thread):
             row_count = Proxy.delete_failed(
                 age_days=self.args.cleanup_age,
                 test_count=self.args.cleanup_test_count,
-                fail_rate=self.args.cleanup_fail_ratio,
+                fail_ratio=self.args.cleanup_fail_ratio,
                 limit=100)
             if row_count > 0:
                 log.debug(f'Deleted {row_count} broken proxies.')

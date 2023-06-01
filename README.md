@@ -56,8 +56,6 @@ We're not responsible for these proxies and we're not responsible for what users
 - ~~jsbeautifier==1.11.0~~ We're using a modified version of [packer.py](https://github.com/beautify-web/js-beautify/blob/master/python/jsbeautifier/unpackers/packer.py)
 
 ## TODO
-- Find a way to interrupt test-manager right after the database queue is interrupted.
-- Cleanup queries - proxies stuck on testing status + old tests + old and bad proxies.
 - Separate class to handle output of proxylists.
 - Flask Webserver:
     - Configuration to specify hostname and port to run Flask.
@@ -77,10 +75,11 @@ We're not responsible for these proxies and we're not responsible for what users
 ## Usage
 
 ```
-usage: start.py [-h] [-cf CONFIG] [-v] [--log-path LOG_PATH] [--download-path DOWNLOAD_PATH] [-pj PROXY_JUDGE] [-ua {random,chrome,firefox,safari}] --db-name DB_NAME --db-user DB_USER --db-pass DB_PASS [--db-host DB_HOST] [--db-port DB_PORT] [-Cp CLEANUP_PERIOD]
-                [-Ctc CLEANUP_TEST_COUNT] [-Cfr CLEANUP_FAIL_RATIO] [-Pf PROXY_FILE] [-Ps] [-Pp {HTTP,SOCKS4,SOCKS5}] [-Pri PROXY_REFRESH_INTERVAL] [-Psi PROXY_SCAN_INTERVAL] [-Pic [PROXY_IGNORE_COUNTRY ...]] [-Oi OUTPUT_INTERVAL] [-Ol OUTPUT_LIMIT] [-Onp]      
-                [-Oh OUTPUT_HTTP] [-Os OUTPUT_SOCKS] [-Okc OUTPUT_KINANCITY] [-Opc OUTPUT_PROXYCHAINS] [-Orm OUTPUT_ROCKETMAP] [-Mni MANAGER_NOTICE_INTERVAL] [-Mt MANAGER_TESTERS] [-Ta] [-Tp] [-Tr TESTER_RETRIES] [-Tbf TESTER_BACKOFF_FACTOR] [-Tt TESTER_TIMEOUT]
-                [-Tf] [-Sr SCRAPPER_RETRIES] [-Sbf SCRAPPER_BACKOFF_FACTOR] [-St SCRAPPER_TIMEOUT] [-Sp SCRAPPER_PROXY]
+usage: start.py [-h] [-cf CONFIG] [-v] [--log-path LOG_PATH] [--download-path DOWNLOAD_PATH] [-pj PROXY_JUDGE] [-ua {random,chrome,firefox,safari}] --db-name DB_NAME --db-user DB_USER --db-pass DB_PASS [--db-host DB_HOST]
+                [--db-port DB_PORT] [--db-max-conn DB_MAX_CONN] [--db-batch-size DB_BATCH_SIZE] [-Ca CLEANUP_AGE] [-Ctc CLEANUP_TEST_COUNT] [-Cfr CLEANUP_FAIL_RATIO] [-Pf PROXY_FILE] [-Ps] [-Pp {HTTP,SOCKS4,SOCKS5}]
+                [-Pri PROXY_REFRESH_INTERVAL] [-Psi PROXY_SCAN_INTERVAL] [-Pic [PROXY_IGNORE_COUNTRY ...]] [-Oi OUTPUT_INTERVAL] [-Ol OUTPUT_LIMIT] [-Onp] [-Oh OUTPUT_HTTP] [-Os OUTPUT_SOCKS] [-Okc OUTPUT_KINANCITY]
+                [-Opc OUTPUT_PROXYCHAINS] [-Orm OUTPUT_ROCKETMAP] [-Mni MANAGER_NOTICE_INTERVAL] [-Mt MANAGER_TESTERS] [-Ta] [-Tp] [-Tr TESTER_RETRIES] [-Tbf TESTER_BACKOFF_FACTOR] [-Tt TESTER_TIMEOUT] [-Tf] [-Sr SCRAPPER_RETRIES]      
+                [-Sbf SCRAPPER_BACKOFF_FACTOR] [-St SCRAPPER_TIMEOUT] [-Sp SCRAPPER_PROXY]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -101,14 +100,18 @@ Database:
   --db-pass DB_PASS     Password for the database. [env var: MYSQL_PASSWORD]
   --db-host DB_HOST     IP or hostname for the database. [env var: MYSQL_HOST]
   --db-port DB_PORT     Port for the database. [env var: MYSQL_PORT]
+  --db-max-conn DB_MAX_CONN
+                        Maximum number of connections to the database. [env var: MYSQL_MAX_CONN]
+  --db-batch-size DB_BATCH_SIZE
+                        Maximum number of rows to update per batch. [env var: MYSQL_BATCH_SIZE]
 
 Cleanup:
-  -Cp CLEANUP_PERIOD, --cleanup-period CLEANUP_PERIOD
-                        Check tests executed in the last X days. Default: 14.
+  -Ca CLEANUP_AGE, --cleanup-age CLEANUP_AGE
+                        Minimum proxy age in days. Default: 14.
   -Ctc CLEANUP_TEST_COUNT, --cleanup-test-count CLEANUP_TEST_COUNT
-                        Minimum number of tests to consider. Default: 30.
+                        Minimum number of tests. Default: 20.
   -Cfr CLEANUP_FAIL_RATIO, --cleanup-fail-ratio CLEANUP_FAIL_RATIO
-                        Maximum failure ratio of tests. Default: 1.
+                        Maximum failure ratio of tests. Default: 0.9.
 
 Proxy Sources:
   -Pf PROXY_FILE, --proxy-file PROXY_FILE
@@ -175,8 +178,7 @@ If an arg is specified in more than one place, then commandline values override 
 
 ## Recommendations
 
-- Use a fast AZenv proxy judge.
-- Database should be able to handle `--manager-testers / 2` connections (e.g. -Mt 100 = 50 db connnections).
+- Use fast AZenv proxy judges.
 
 ## Docker
 

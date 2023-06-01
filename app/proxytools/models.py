@@ -460,21 +460,21 @@ class Proxy(BaseModel):
         return query
 
     @staticmethod
-    def delete_failed(age_days=14, test_count=20, fail_rate=0.9, limit=100):
+    def delete_failed(age_days=14, test_count=20, fail_ratio=0.9, limit=100):
         """
         Delete old proxies with no success tests.
 
         Args:
             age_days (int, optional): Minimum proxy age. Defaults to 14 days.
             test_count (int, optional): Minimum number of attempts made. Defaults to 20.
-            fail_rate (float, optional): Failure rate to delete. Defaults to 0.9 (90%).
+            fail_ratio (float, optional): Failure ratio to delete. Defaults to 0.9 (90%).
             limit (int, optional): Maximum number of records deleted.
 
         Returns:
             query: Deleted proxy count
         """
         min_age = datetime.utcnow() - timedelta(days=age_days)
-        fail_count = round(test_count * fail_rate)
+        fail_count = round(test_count * fail_ratio)
 
         conditions = (
             (Proxy.status != ProxyStatus.TESTING) &
