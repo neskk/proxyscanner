@@ -146,7 +146,7 @@ class Database():
                  f'{in_use} in use and {available} available.')
 
 
-class InsertProxyQueue(Thread):
+class InsertProxyThread(Thread):
     def __init__(self, db_queue) -> None:
         Thread.__init__(self, name='insert-proxy', daemon=False)
         self.db_queue = db_queue
@@ -226,7 +226,7 @@ class InsertProxyQueue(Thread):
         log.debug('Proxy insert thread shutdown.')
 
 
-class TestingQueue(Thread):
+class TestingThread(Thread):
     def __init__(self, db_queue) -> None:
         Thread.__init__(self, name='get-proxy', daemon=False)
         self.db_queue = db_queue
@@ -260,8 +260,7 @@ class TestingQueue(Thread):
             for proxy in query:
                 proxy_ids.append(proxy.id)
                 self.queue.put(proxy)
-            row_count = Proxy.bulk_lock(proxy_ids)
-            log.debug(f'Locked {row_count} proxies for testing.')
+            Proxy.bulk_lock(proxy_ids)
             return True
         except DatabaseError as e:
             log.warning(f'Failed to fill test queue: {e}')
@@ -323,7 +322,7 @@ class TestingQueue(Thread):
         log.debug('Test queue thread shutdown.')
 
 
-class UpdateProxyQueue(Thread):
+class UpdateProxyThread(Thread):
     def __init__(self, db_queue, threshold) -> None:
         Thread.__init__(self, name='update-proxy', daemon=False)
         self.db_queue = db_queue
@@ -403,7 +402,7 @@ class UpdateProxyQueue(Thread):
         log.debug('Proxy update thread shutdown.')
 
 
-class UpdateProxyTestQueue(Thread):
+class UpdateProxyTestThread(Thread):
     def __init__(self, db_queue, threshold) -> None:
         Thread.__init__(self, name='update-proxytest', daemon=False)
         self.db_queue = db_queue
@@ -560,10 +559,10 @@ class DatabaseQueue():
         self.args = Config.get_args()
         self.interrupt = Event()
 
-        self.insert_proxy_thread = InsertProxyQueue(self)
-        self.testing_thread = TestingQueue(self)
-        self.update_proxy_thread = UpdateProxyQueue(self, 10)
-        self.update_proxytest_thread = UpdateProxyTestQueue(self, 10)
+        self.insert_proxy_thread = InsertProxyThread(self)
+        self.testing_thread = TestingThread(self)
+        self.update_proxy_thread = UpdateProxyThread(self, 10)
+        self.update_proxytest_thread = UpdateProxyTestThread(self, 10)
         self.cleanup_thread = CleanupThread(self)
 
     def start(self):
