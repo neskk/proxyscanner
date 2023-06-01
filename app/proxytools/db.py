@@ -192,7 +192,7 @@ class InsertProxyThread(Thread):
                                 ]))
                     row_count += query.execute()
 
-            log.debug(f'Inserted {len(self.backlog)} ({row_count}) proxies.')
+            # log.debug(f'Inserted {len(self.backlog)} proxies.')
             self.backlog.clear()
             return True
         except DatabaseError as e:
@@ -527,7 +527,14 @@ class CleanupThread(Thread):
             if self.interrupt.is_set():
                 break
 
-            if not self.update_db():
+            if not self.db_queue.lock_db():
+                time.sleep(1.0)
+                continue
+
+            result = self.update_db()
+            self.db_queue.unlock_db()
+
+            if not result:
                 error_count += 1
                 time.sleep(1.0 * error_count)
                 continue
