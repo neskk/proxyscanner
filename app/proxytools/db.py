@@ -229,7 +229,7 @@ class InsertProxyThread(Thread):
 
 class TestingThread(Thread):
     def __init__(self, db_queue) -> None:
-        Thread.__init__(self, name='get-proxy', daemon=False)
+        Thread.__init__(self, name='lock-proxy', daemon=False)
         self.db_queue = db_queue
         self.args = db_queue.args
         self.interrupt = db_queue.interrupt

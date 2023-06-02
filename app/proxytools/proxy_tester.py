@@ -64,9 +64,10 @@ class ProxyTester(Thread):
                 continue
 
             # Execute tests
-            self.execute_tests(proxy)
+            results = self.execute_tests(proxy)
 
             # Update database with test results
+            self.evaluate_results(proxy, results)
             self.db_queue.update_proxy(proxy)
 
         log.debug(f'{self.name} shutdown.')
@@ -107,6 +108,7 @@ class ProxyTester(Thread):
             self.manager.mark_success()
 
     def execute_tests(self, proxy: Proxy):
+        results = []
         for test in self.tests:
             test_name = test.__class__.__name__
             try:
@@ -120,6 +122,7 @@ class ProxyTester(Thread):
                     log.error('Proxy test %s returned no results.', test_name)
                     continue
 
+                results.append(proxy_test)
                 self.update_stats(proxy, proxy_test)
                 self.db_queue.update_proxytest(proxy_test)
 
@@ -134,3 +137,12 @@ class ProxyTester(Thread):
                 log.exception('Error executing test: %s', test_name)
                 self.interrupt.set()
                 break
+
+        # Update proxy status with results from executed tests
+        if not results:
+            results.append(ProxyTest(
+                proxy=proxy,
+                info='Not tested',
+                status=ProxyStatus.ERROR))
+
+        return results
