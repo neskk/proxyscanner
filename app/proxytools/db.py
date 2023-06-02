@@ -190,9 +190,10 @@ class InsertProxyThread(Thread):
                                     Proxy.protocol,
                                     Proxy.modified
                                 ]))
+                    query = query.as_rowcount()
                     row_count += query.execute()
 
-            # log.debug(f'Inserted {len(self.backlog)} proxies.')
+            log.debug(f'Inserted {row_count} proxies.')
             self.backlog.clear()
             return True
         except DatabaseError as e:
@@ -253,6 +254,11 @@ class TestingThread(Thread):
         if free_slots == 0:
             time.sleep(1.0)
             return True
+
+        if not self.db_queue.lock_database():
+            time.sleep(1.0)
+            return True
+
         try:
             Proxy.database().connect()
             query = Proxy.need_scan(limit=free_slots, protocols=protocol)
@@ -267,6 +273,7 @@ class TestingThread(Thread):
         except MaxConnectionsExceeded as e:
             log.warning(f'Failed to acquire a database connection: {e}')
         finally:
+            self.db_queue.unlock_database()
             Proxy.database().close()
 
         return False
@@ -304,12 +311,7 @@ class TestingThread(Thread):
             if self.interrupt.is_set():
                 break
 
-            if not self.db_queue.lock_db():
-                time.sleep(1.0)
-                continue
-
             result = self.fill_queue()
-            self.db_queue.unlock_db()
 
             if not result:
                 error_count += 1
@@ -527,12 +529,12 @@ class CleanupThread(Thread):
             if self.interrupt.is_set():
                 break
 
-            if not self.db_queue.lock_db():
+            if not self.db_queue.lock_database():
                 time.sleep(1.0)
                 continue
 
             result = self.update_db()
-            self.db_queue.unlock_db()
+            self.db_queue.unlock_database()
 
             if not result:
                 error_count += 1
@@ -593,9 +595,9 @@ class DatabaseQueue():
         self.cleanup_thread.join()
         log.info('Database queue threads shutdown.')
 
-    def lock_db(self):
+    def lock_database(self):
         try:
-            DBConfig.database().connect()
+            DBConfig.database().connect(reuse_if_open=True)
             return DBConfig.lock_database(self.args.local_ip)
         except DatabaseError as e:
             log.error(f'Failed to lock database: {e}')
@@ -605,9 +607,9 @@ class DatabaseQueue():
             ProxyTest.database().close()
         return False
 
-    def unlock_db(self):
+    def unlock_database(self):
         try:
-            DBConfig.database().connect()
+            DBConfig.database().connect(reuse_if_open=True)
             return DBConfig.unlock_database(self.args.local_ip)
         except DatabaseError as e:
             log.error(f'Failed to unlock database: {e}')
