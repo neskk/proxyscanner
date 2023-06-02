@@ -58,7 +58,7 @@ class Config:
         if self.__args.db_max_conn <= 5:
             raise RuntimeError('Database max connections must be greater than 5.')
 
-        if self.__args.db_batch_size <= 50:
+        if self.__args.db_batch_size < 50:
             raise RuntimeError('Database batch size must be greater than 50.')
 
         if self.__args.manager_testers <= 0:

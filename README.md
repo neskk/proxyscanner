@@ -45,15 +45,17 @@ We're not responsible for these proxies and we're not responsible for what users
 ## Requirements
 - Python 3.7+
 - MySQL 5.7+
-- beautifulsoup4==4.9.0
-- configargparse==1.2.3
-- pymysql==0.9.3
-- peewee==3.13.3
-- PySocks==1.7.1
-- requests==2.23.0
-- ip2location==8.4.1
+
+### Libraries
+- flask==2.3.2
+- pymysql==1.0.3
+- peewee==3.16.2
+- pysocks==1.7.1
+- requests==2.31
+- beautifulsoup4==4.12.2
+- ip2location==8.10
 - pycountry==22.3.5
-- ~~jsbeautifier==1.11.0~~ We're using a modified version of [packer.py](https://github.com/beautify-web/js-beautify/blob/master/python/jsbeautifier/unpackers/packer.py)
+- ~~jsbeautifier==1.14.8~~ We're using a modified version of [packer.py](https://github.com/beautify-web/js-beautify/blob/master/python/jsbeautifier/unpackers/packer.py)
 
 ## TODO
 - Separate class to handle output of proxylists.
