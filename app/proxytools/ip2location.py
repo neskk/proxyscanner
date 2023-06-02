@@ -74,7 +74,7 @@ class IP2LocationDatabase(object):
         try:
             record = self.database.get_all(ip)
             country = record.country_short.lower()
-        except Exception:
-            log.warning('Unable to lookup country from IP: %s', ip)
+        except Exception as e:
+            log.warning(f'Unable to lookup country for "{ip}": {e}')
 
         return country
