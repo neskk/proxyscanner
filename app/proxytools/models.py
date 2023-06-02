@@ -211,7 +211,7 @@ class Proxy(BaseModel):
         query = (Proxy
                  .select(Proxy)
                  .where(conditions)
-                 .order_by(Proxy.status.asc(),  # lower status status
+                 .order_by(Proxy.status.asc(),  # lower status first
                            Proxy.modified.asc())  # older records first
                  .limit(limit))
 
@@ -366,7 +366,9 @@ class Proxy(BaseModel):
         query = (Proxy
                  .select()
                  .where(conditions)
-                 .order_by(Proxy.created.asc())  # get older first
+                 .order_by(Proxy.created.asc(),  # older records first
+                           Proxy.test_count.desc(),  # more tests
+                           Proxy.fail_count.asc())  # less failures
                  .limit(limit))
 
         return query
