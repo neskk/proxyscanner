@@ -7,6 +7,7 @@ import os
 import requests
 import time
 
+from threading import Lock
 from zipfile import ZipFile, is_zipfile
 
 log = logging.getLogger(__name__)
@@ -18,6 +19,7 @@ class IP2LocationDatabase(object):
     DATABASE_ZIP = 'IP2LOCATION-LITE-DB1.BIN.ZIP'
 
     def __init__(self, args):
+        self.lock = Lock()
         self.download_path = args.download_path
 
         database_file = os.path.join(args.download_path, self.DATABASE_FILE)
@@ -70,11 +72,11 @@ class IP2LocationDatabase(object):
         Returns:
             str: ISO 3166-1 alpha-2 code
         """
-        country = None
+        self.lock.acquire()
         try:
-            record = self.database.get_all(ip)
-            country = record.country_short.lower()
+            row = self.database.get_all(ip)
+            return row.country_short.lower()
         except Exception as e:
             log.warning(f'Unable to lookup country for "{ip}": {e}')
-
-        return country
+        finally:
+            self.lock.release()
