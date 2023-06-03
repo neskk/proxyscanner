@@ -598,7 +598,7 @@ class DatabaseQueue():
     def lock_database(self):
         try:
             DBConfig.database().connect(reuse_if_open=True)
-            return DBConfig.lock_database(self.args.local_ip)
+            return DBConfig.lock_database(self.args.hash)
         except DatabaseError as e:
             log.error(f'Failed to lock database: {e}')
         except MaxConnectionsExceeded as e:
@@ -610,7 +610,7 @@ class DatabaseQueue():
     def unlock_database(self):
         try:
             DBConfig.database().connect(reuse_if_open=True)
-            return DBConfig.unlock_database(self.args.local_ip)
+            return DBConfig.unlock_database(self.args.hash)
         except DatabaseError as e:
             log.error(f'Failed to unlock database: {e}')
         except MaxConnectionsExceeded as e:

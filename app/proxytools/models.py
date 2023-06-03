@@ -11,7 +11,6 @@ from peewee import (
 
 from datetime import datetime, timedelta
 from enum import IntEnum
-from hashlib import blake2b
 
 log = logging.getLogger(__name__)
 
@@ -116,9 +115,6 @@ class Proxy(BaseModel):
         if self.test_count:
             return (1.0 - self.fail_count / self.test_count) * 100
         return 0.0
-
-    def __repr__(self):
-        return f'{self.ip}:{self.port}'
 
     def data(self) -> dict:
         return {
@@ -504,9 +500,6 @@ class ProxyTest(BaseModel):
     info = Utf8mb4CharField(null=True)
     created = DateTimeField(index=True, default=datetime.utcnow)
 
-    def __repr__(self):
-        return f'{self.proxy}-{self.status}'
-
     @staticmethod
     def latest(exclude_ids=[]):
         """ Retrieve latest tests """
@@ -635,10 +628,8 @@ class DBConfig(BaseModel):
             defaults={'val': None})
 
     @staticmethod
-    def lock_database(local_ip):
+    def lock_database(hash):
         """ Update database lock with local IP """
-        hash = blake2b(local_ip.encode(), digest_size=10).hexdigest()
-
         conditions = (
             (DBConfig.key == 'read_lock') &
             (DBConfig.val.is_null(True)))
@@ -651,6 +642,7 @@ class DBConfig(BaseModel):
         if row_count == 1:
             return True
 
+        log.debug('Failed to lock database.')
         max_lock = datetime.utcnow() - timedelta(seconds=10)
         conditions = (
             (DBConfig.key == 'read_lock') &
@@ -668,10 +660,8 @@ class DBConfig(BaseModel):
         return False
 
     @staticmethod
-    def unlock_database(local_ip):
+    def unlock_database(hash):
         """ Update database to clear lock """
-        hash = blake2b(local_ip.encode(), digest_size=10).hexdigest()
-
         conditions = (
             (DBConfig.key == 'read_lock') &
             (DBConfig.val == hash))
@@ -684,5 +674,5 @@ class DBConfig(BaseModel):
         if row_count == 1:
             return True
 
-        log.warning('Failed to unlock database.')
+        log.debug('Failed to unlock database.')
         return False

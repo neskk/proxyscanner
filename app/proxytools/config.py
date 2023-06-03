@@ -2,11 +2,13 @@
 # -*- coding: utf-8 -*-
 
 from enum import Enum
+from hashlib import blake2b
 from typing import Any
-import configargparse
-import pycountry
 import os
 import sys
+
+import configargparse
+import pycountry
 
 from .models import ProxyProtocol
 from .utils import find_local_ip
@@ -75,6 +77,9 @@ class Config:
                              f'(before: {prev_ip})')
 
         setattr(self.__args, 'local_ip', local_ip)
+
+        hash = blake2b(local_ip.encode(), digest_size=10).hexdigest()
+        setattr(self.__args, 'hash', hash)
 
 
 ###############################################################################
