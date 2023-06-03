@@ -190,10 +190,9 @@ class InsertProxyThread(Thread):
                                     Proxy.protocol,
                                     Proxy.modified
                                 ]))
-                    query = query.as_rowcount()
-                    row_count += query.execute()
+                    row_count += query.as_rowcount().execute()
 
-            log.debug(f'Inserted {row_count} proxies.')
+            log.debug(f'Inserted {len(self.backlog)} proxies.')
             self.backlog.clear()
             return True
         except DatabaseError as e:
@@ -214,10 +213,13 @@ class InsertProxyThread(Thread):
                 self.interrupt.set()
                 break
 
-            if not self.update_db():
-                error_count += 1
-                time.sleep(1.0 * error_count)
-                continue
+            try:
+                if not self.update_db():
+                    error_count += 1
+                    time.sleep(1.0 * error_count)
+                    continue
+            except Exception as e:
+                log.exception(f'Exception caught: {e}')
 
             error_count = 0
             if self.interrupt.is_set():
@@ -311,14 +313,16 @@ class TestingThread(Thread):
             if self.interrupt.is_set():
                 break
 
-            result = self.fill_queue()
-
-            if not result:
-                error_count += 1
-                time.sleep(1.0 * error_count)
-                continue
+            try:
+                if not self.fill_queue():
+                    error_count += 1
+                    time.sleep(1.0 * error_count)
+                    continue
+            except Exception as e:
+                log.exception(f'Exception caught: {e}')
 
             error_count = 0
+            time.sleep(5.0)
 
         self.release_queue()
         log.debug('Test queue thread shutdown.')
@@ -391,10 +395,13 @@ class UpdateProxyThread(Thread):
             else:
                 threshold = self.threshold
 
-            if not self.update_db(threshold):
-                error_count += 1
-                time.sleep(1.0 * error_count)
-                continue
+            try:
+                if not self.update_db(threshold):
+                    error_count += 1
+                    time.sleep(1.0 * error_count)
+                    continue
+            except Exception as e:
+                log.exception(f'Exception caught: {e}')
 
             error_count = 0
             if self.interrupt.is_set():
@@ -463,10 +470,13 @@ class UpdateProxyTestThread(Thread):
             else:
                 threshold = self.threshold
 
-            if not self.update_db(threshold):
-                error_count += 1
-                time.sleep(1.0 * error_count)
-                continue
+            try:
+                if not self.update_db(threshold):
+                    error_count += 1
+                    time.sleep(1.0 * error_count)
+                    continue
+            except Exception as e:
+                log.exception(f'Exception caught: {e}')
 
             error_count = 0
             if self.interrupt.is_set():
@@ -490,29 +500,32 @@ class CleanupThread(Thread):
                 log.debug(f'Unlocked {row_count} proxies stuck in testing.')
             return True
         except DatabaseError as e:
-            log.warning(f'Failed to delete broken proxies: {e}')
+            log.warning(f'Failed to delete bad proxies: {e}')
 
         return False
 
     def update_db(self):
+        if not self.db_queue.lock_database():
+            time.sleep(1.0)
+            return True
+
         try:
             Proxy.database().connect()
-
             self.unlock_stuck()
-
             row_count = Proxy.delete_failed(
                 age_days=self.args.cleanup_age,
                 test_count=self.args.cleanup_test_count,
                 fail_ratio=self.args.cleanup_fail_ratio,
                 limit=100)
             if row_count > 0:
-                log.debug(f'Deleted {row_count} broken proxies.')
+                log.debug(f'Deleted {row_count} bad proxies.')
             return True
         except DatabaseError as e:
-            log.warning(f'Failed to delete broken proxies: {e}')
+            log.warning(f'Failed to delete bad proxies: {e}')
         except MaxConnectionsExceeded as e:
             log.warning(f'Failed to acquire a database connection: {e}')
         finally:
+            self.db_queue.unlock_database()
             Proxy.database().close()
 
         return False
@@ -529,17 +542,13 @@ class CleanupThread(Thread):
             if self.interrupt.is_set():
                 break
 
-            if not self.db_queue.lock_database():
-                time.sleep(1.0)
-                continue
-
-            result = self.update_db()
-            self.db_queue.unlock_database()
-
-            if not result:
-                error_count += 1
-                time.sleep(1.0 * error_count)
-                continue
+            try:
+                if not self.update_db():
+                    error_count += 1
+                    time.sleep(1.0 * error_count)
+                    continue
+            except Exception as e:
+                log.exception(f'Exception caught: {e}')
 
             error_count = 0
             time.sleep(30.0)
