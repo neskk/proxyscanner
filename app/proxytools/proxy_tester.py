@@ -91,6 +91,7 @@ class ProxyTester(Thread):
         proxy.latency = int(total_latency / len(results))
         proxy.status = results[-1].status
         proxy.modified = datetime.utcnow()
+        # log.debug(f'Tested Proxy #{proxy.id}: {proxy_test.info} - {proxy.latency}ms')
 
     def update_stats(self, proxy: Proxy, proxy_test: ProxyTest) -> None:
         """

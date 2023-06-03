@@ -59,14 +59,14 @@ class Google(Test):
 
             proxy_test.latency = int(response.elapsed.total_seconds() * 1000)
 
-            if not response.text:
-                proxy_test.status = ProxyStatus.ERROR
-                proxy_test.info = 'Empty response'
-                log.warning('No content in response.')
-            elif response.status_code != 200:
+            if response.status_code != 200:
                 proxy_test.status = ProxyStatus.ERROR
                 proxy_test.info = f'Bad status code: {response.status_code}'
-                log.warning('Response with bad status code: %s', response.status_code)
+                log.debug('Response with bad status code: %s', response.status_code)
+            elif not response.text:
+                proxy_test.status = ProxyStatus.ERROR
+                proxy_test.info = 'Empty response'
+                log.debug('No content in response.')
             else:
                 result = self.parse_response(proxy_test, response.text)
                 if not result:

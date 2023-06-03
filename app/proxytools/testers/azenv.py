@@ -14,8 +14,6 @@ log = logging.getLogger(__name__)
 
 class AZenv(Test):
 
-    STATUS_BANLIST = [403, 409]
-
     def __init__(self, manager):
         super().__init__(manager, 'azenv')
         self.base_url = self.proxy_judge
@@ -55,18 +53,14 @@ class AZenv(Test):
 
             proxy_test.latency = int(response.elapsed.total_seconds() * 1000)
 
-            if response.status_code in self.STATUS_BANLIST:
-                proxy_test.status = ProxyStatus.BANNED
-                proxy_test.info = 'Banned status code'
-                log.warning('Proxy seems to be banned.')
+            if response.status_code != 200:
+                proxy_test.status = ProxyStatus.ERROR
+                proxy_test.info = f'Bad status code: {response.status_code}'
+                log.debug('Response with bad status code: %s', response.status_code)
             elif not response.text:
                 proxy_test.status = ProxyStatus.ERROR
                 proxy_test.info = 'Empty response'
-                log.warning('No content in response.')
-            elif response.status_code != 200:
-                proxy_test.status = ProxyStatus.ERROR
-                proxy_test.info = f'Bad status code: {response.status_code}'
-                log.warning('Response with bad status code: %s', response.status_code)
+                log.debug('No content in response.')
             else:
                 headers = self.parse_response(response.text)
                 result = self.analyze_headers(proxy_test, headers)
@@ -115,6 +109,8 @@ class AZenv(Test):
             line_upper = line.upper()
             for keyword in keywords:
                 if keyword in line_upper:
+                    if line.startswith('[') and line.endswith(']'):
+                        line = line[1:-1]
                     result[keyword] = line.split('=')[1].strip()
                     break  # jump to next line
 
