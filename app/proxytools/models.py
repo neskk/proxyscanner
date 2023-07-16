@@ -344,6 +344,7 @@ class Proxy(BaseModel):
             limit (int, optional): Defaults to 1000.
             age_secs (int, optional): Maximum test age. Defaults to 3600 secs.
             protocol (ProxyProtocol, optional): Filter by protocol. Defaults to None.
+            exclude_countries (list, optional): Filter countries from query.
 
         Returns:
             query: Proxies that have been validated.
@@ -362,9 +363,10 @@ class Proxy(BaseModel):
         query = (Proxy
                  .select()
                  .where(conditions)
-                 .order_by(Proxy.created.asc(),  # older records first
-                           Proxy.test_count.desc(),  # more tests
-                           Proxy.fail_count.asc())  # less failures
+                 .order_by(Proxy.fail_count.asc(),  # less failures first
+                           Proxy.test_count.desc(),  # more tests first
+                           Proxy.latency.desc(),  # faster proxies first
+                           Proxy.created.asc())  # older records first
                  .limit(limit))
 
         return query

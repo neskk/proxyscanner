@@ -111,7 +111,6 @@ class ProxyTester(Thread):
     def execute_tests(self, proxy: Proxy):
         results = []
         for test in self.tests:
-            test_name = test.__class__.__name__
             try:
                 if test.skip_test(proxy):
                     log.debug('Skipped %s test for proxy: %s', test.name, proxy.url())
@@ -120,9 +119,11 @@ class ProxyTester(Thread):
                 # log.debug(f'Running test {test.name} on Proxy #{proxy.id}: {proxy.url()}')
                 proxy_test = test.run(proxy)
                 if not proxy_test:
-                    log.error('Proxy test %s returned no results.', test_name)
+                    log.error(f'Proxy test {test.name} returned no results.')
                     continue
 
+                log.debug(f'Proxy test {test.name}: {proxy_test.info} - '
+                          f'{proxy_test.status.name}')
                 results.append(proxy_test)
                 self.update_stats(proxy, proxy_test)
                 self.db_queue.update_proxytest(proxy_test)
@@ -135,7 +136,7 @@ class ProxyTester(Thread):
                 if self.interrupt.is_set():
                     break
             except Exception:
-                log.exception('Error executing test: %s', test_name)
+                log.exception(f'Error executing test: {test.name}')
                 self.interrupt.set()
                 break
 

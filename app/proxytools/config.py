@@ -321,23 +321,26 @@ def get_args():
     group = parser.add_argument_group('Proxy Scrapper')
     group.add_argument('-Sr', '--scrapper-retries',
                        help=('Maximum number of web request attempts. '
-                             'Default: 3.'),
-                       default=3,
+                             'Default: 5.'),
+                       default=5,
                        type=int)
     group.add_argument('-Sbf', '--scrapper-backoff-factor',
                        help=('Time factor (in seconds) by which the delay '
-                             'until next retry will increase. Default: 0.5.'),
-                       default=0.5,
+                             'until next retry will increase. Default: 1.0.'),
+                       default=1.0,
                        type=float_seconds)
     group.add_argument('-St', '--scrapper-timeout',
                        help='Connection timeout in seconds. Default: 5.',
-                       default=5,
+                       default=10.0,
                        type=float_seconds)
     group.add_argument('-Sp', '--scrapper-proxy',
                        help=('Use this proxy for webpage scrapping. '
                              'Format: <proto>://[<user>:<pass>@]<ip>:<port> '
                              'Default: None.'),
                        default=None)
+    group.add_argument('-Sa', '--scrapper-anonymous',
+                       help='Use proxy from database to scrap webpages.',
+                       action='store_true')
     args = parser.parse_args()
 
     if args.verbose:

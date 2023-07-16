@@ -12,14 +12,14 @@ from .utils import http_headers, export_file
 
 from requests.adapters import HTTPAdapter
 from requests import Session, Response
-from requests.packages import urllib3
+from urllib3.util.retry import Retry
 
 log = logging.getLogger(__name__)
 
 
 class Test(ABC):
 
-    STATUS_FORCELIST = [500, 502, 503, 504]
+    STATUS_FORCELIST = [413, 429, 500, 502, 503, 504]
 
     def __init__(self, manager, name):
         """
@@ -36,14 +36,24 @@ class Test(ABC):
         self.headers['User-Agent'] = self.user_agent
 
         # https://urllib3.readthedocs.io/en/stable/reference/urllib3.util.html
-        self.urlib3_retry = urllib3.Retry(
+        self.urlib3_retry = Retry(
+            allowed_methods=None,  # retry on all HTTP verbs
             total=self.args.tester_retries,
+            connect=3,
+            read=3,
+            redirect=1,
+            status=3,
             backoff_factor=self.args.tester_backoff_factor,
             status_forcelist=self.STATUS_FORCELIST)
 
     def set_retry(self, total, backoff_factor, status_forcelist):
-        self.urlib3_retry = urllib3.Retry(
+        self.urlib3_retry = Retry(
+            allowed_methods=None,  # retry on all HTTP verbs
             total=total,
+            connect=3,
+            read=3,
+            redirect=1,
+            status=3,
             backoff_factor=backoff_factor,
             status_forcelist=status_forcelist)
 
@@ -78,7 +88,7 @@ class Test(ABC):
         info += '\n-----------------\n'
         info += f'Response Headers: {response.headers}'
         info += '\n-----------------\n'
-        info += 'Response'
+        info += f'Response ({len(response.raw.retries.history)})'
         info += '\n-----------------\n'
         info += response.text
 
