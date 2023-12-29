@@ -156,7 +156,7 @@ class ProxyScrapper(ABC, Thread):
             start_t = timer()
             try:
                 if error_count == 4:
-                    continue
+                    continue  # XXX
                     log.debug('Not using proxy for next request.')
                     no_proxy = True
                 self.setup_proxy(no_proxy)

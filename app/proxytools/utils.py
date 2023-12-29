@@ -68,9 +68,9 @@ def configure_logging(log, verbosity=0, output_path='logs', output_name='-app'):
     if verbosity > 1:
         logging.getLogger('peewee.pool').setLevel(logging.DEBUG)
 
-        # Monitor hanging threads
-        from hanging_threads import start_monitoring
-        start_monitoring()
+    # Monitor hanging threads
+    # from hanging_threads import start_monitoring
+    # start_monitoring()
 
 
 def sigterm_handler(_signo, _stack_frame):

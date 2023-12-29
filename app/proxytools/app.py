@@ -4,6 +4,7 @@
 import logging
 import signal
 import sys
+from threading import Event
 import time
 
 from timeit import default_timer
@@ -19,6 +20,12 @@ log = logging.getLogger(__name__)
 
 
 class App:
+
+    __interrupt = Event()
+
+    @staticmethod
+    def interrupt():
+        return App.__interrupt
 
     def __init__(self):
         self.args = Config.get_args()
@@ -73,7 +80,7 @@ class App:
         refresh_timer = default_timer()
         output_timer = default_timer()
         errors = 0
-
+        time.sleep(1.0)
         while True:
             self.db.print_stats()
             self.db_queue.print_stats()
